@@ -1,11 +1,12 @@
 #pragma once
 #include <inttypes.h>
-
+#include <vector>
 #include <iostream>
 
 #include "Utilities.h"
 
-struct CacheConfig {
+struct CacheConfig
+{
     // Cache size in bytes.
     uint32_t cacheSize;
     // Cache block size in bytes.
@@ -15,22 +16,72 @@ struct CacheConfig {
     // Additional miss latency in cycles.
     uint32_t missLatency;
     // debug: Overload << operator to allow easy printing of CacheConfig
-    friend std::ostream& operator<<(std::ostream& os, const CacheConfig& config) {
+    friend std::ostream &operator<<(std::ostream &os, const CacheConfig &config)
+    {
         os << "CacheConfig { " << config.cacheSize << ", " << config.blockSize << ", "
            << config.ways << ", " << config.missLatency << " }";
         return os;
     }
 };
 
-enum CacheDataType { I_CACHE = false, D_CACHE = true };
-enum CacheOperation { CACHE_READ = false, CACHE_WRITE = true };
+enum CacheDataType
+{
+    I_CACHE = false,
+    D_CACHE = true
+};
+enum CacheOperation
+{
+    CACHE_READ = false,
+    CACHE_WRITE = true
+};
 
-class Cache {
-   private:
+struct CacheEntry
+{
+    uint32_t tag;
+    bool valid;
+    CacheEntry() : tag(0), valid(false) {}
+};
+
+class Cache
+{
+private:
     /**TODO[students] include other states, e.g. associativity, cache tables */
     uint32_t hits, misses;
 
-   public:
+    // Cache size in bytes.
+    uint32_t cacheSize;
+    // Cache block size in bytes.
+    uint32_t blockSize;
+    // Type of cache - direct-mapped or two-way set-assoc?
+    uint32_t ways;
+    // Additional miss latency in cycles.
+    uint32_t missLatency;
+    // number of sets
+    uint32_t numSets;
+    // offsetBits
+    uint32_t offsetBits;
+    // indexBits
+    uint32_t indexBits;
+
+    // cache
+    std::vector<std::vector<CacheEntry>> cache;
+
+    // lru
+    std::vector<std::vector<int>> lru;
+
+    // Calculate index
+    uint32_t getIndex(uint32_t address) const
+    {   
+        return (address >> offsetBits) & ((1 << indexBits) - 1);
+    }
+
+    // calculate tag
+    uint32_t getTag(uint32_t address) const
+    {
+        return address >> (offsetBits + indexBits);
+    }
+
+public:
     CacheConfig config;
     // Constructor to initialize the cache parameters
     Cache(CacheConfig configParam, CacheDataType cacheType);
@@ -44,7 +95,7 @@ class Cache {
     bool access(uint32_t address, CacheOperation readWrite);
 
     // dump information as you needed, write your own dump function
-    Status dump(const std::string& base_output_name);
+    Status dump(const std::string &base_output_name);
 
     uint32_t getHits() { return hits; }
     uint32_t getMisses() { return misses; }
