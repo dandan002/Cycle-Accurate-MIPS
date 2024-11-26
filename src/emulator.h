@@ -72,6 +72,10 @@ class Emulator {
     // Helper function to sign extend a 16-bit integer to a 32-bit unsigned integer
     uint32_t signExt(uint16_t smol);
 
+    // check overflow
+    bool checkOverflow(uint32_t val1, uint32_t val2);
+    bool checkOverflowSigned(uint32_t val1, int32_t val2);
+
    public:
     Emulator();
     ~Emulator();

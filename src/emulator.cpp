@@ -39,6 +39,22 @@ uint32_t Emulator::signExt(uint16_t smol) {
     return (smol & 0x8000) ? x ^ extension : x;
 }
 
+bool Emulator::checkOverflow(uint32_t val1, uint32_t val2) {
+    int64_t result = int64_t(val1) + int64_t(val2);
+    if (result > INT32_MAX || result < INT32_MIN) {
+        return true;
+    }
+    return false;
+}
+
+bool Emulator::checkOverflowSigned(uint32_t val1, int32_t val2) {
+    int64_t result = int64_t(val1) + int64_t(val2); 
+    if (result > INT32_MAX || result < INT32_MIN) {
+        return true; 
+    }
+    return false; 
+}
+
 // dump registers and memory
 void Emulator::dumpRegMem(const std::string& output_name) {
     assert(memory);
@@ -104,14 +120,32 @@ Emulator::InstructionInfo Emulator::executeInstruction() {
     info.branchAddr = branchAddr;
     info.jumpAddr = jumpAddr;
 
+    uint32_t a = 0;
+    uint32_t b = 0;  
+    int32_t c = 0;
+
     switch (opcode) {
         case OP_ZERO:  // R-type instruction
             switch (funct) {
                 case FUN_ADD:
-                    regData.registers[rd] = regData.registers[rs] + regData.registers[rt];
+                    a = regData.registers[rs];
+                    b = regData.registers[rt];
+                    
+                    if (checkOverflow(a, b)) {
+                        info.isOverflow = true;
+                    } else {
+                        regData.registers[rd] = a + b;
+                    }
                     break;
                 case FUN_ADDU:
-                    regData.registers[rd] = regData.registers[rs] + regData.registers[rt];
+                    a = regData.registers[rs];
+                    b = regData.registers[rt];
+
+                    if (checkOverflow(a, b)) {
+                        info.isOverflow = true;
+                    } else {
+                        regData.registers[rd] = a + b;
+                    }
                     break;
                 case FUN_AND:
                     regData.registers[rd] = regData.registers[rs] & regData.registers[rt];
@@ -152,10 +186,22 @@ Emulator::InstructionInfo Emulator::executeInstruction() {
             break;
 
         case OP_ADDI:
-            regData.registers[rt] = regData.registers[rs] + signExtImm;
+            a = regData.registers[rs];
+            c = signExtImm;
+            if (checkOverflowSigned(a, c)) {
+                info.isOverflow = true;
+            } else {
+                regData.registers[rt] = a + c;
+            }
             break;
         case OP_ADDIU:
-            regData.registers[rt] = regData.registers[rs] + signExtImm;
+            a = regData.registers[rs];
+            c = signExtImm;
+            if (checkOverflowSigned(a, c)) {
+                info.isOverflow = true;
+            } else {
+                regData.registers[rt] = a + c;
+            }
             break;
         case OP_ANDI:
             regData.registers[rt] = regData.registers[rs] & zeroExtImm;
@@ -238,6 +284,10 @@ Emulator::InstructionInfo Emulator::executeInstruction() {
         default:
             std::cerr << LOG_ERROR << "Illegal operation..." << std::endl;
             info.isValid = false;
+    }
+
+    if (info.isOverflow || !info.isValid) {
+        PC = 0x8000;
     }
     return info;  // return the InstructionInfo struct of the instruction just executed
 }
