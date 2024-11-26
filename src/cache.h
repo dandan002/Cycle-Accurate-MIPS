@@ -56,12 +56,15 @@ private:
     uint32_t ways;
     // Additional miss latency in cycles.
     uint32_t missLatency;
+    
     // number of sets
     uint32_t numSets;
     // offsetBits
-    uint32_t offsetBits;
+    uint32_t blockOffset;
     // indexBits
     uint32_t indexBits;
+    // cache type
+    CacheDataType cacheType;
 
     // cache
     std::vector<std::vector<CacheEntry>> cache;
@@ -69,17 +72,24 @@ private:
     // lru
     std::vector<std::vector<uint32_t>> lru;
 
+    // byteOffset
+    uint32_t byteOffset = 2;
+
     // Calculate index
     uint32_t getIndex(uint32_t address) const
     {   
-        return (address >> offsetBits) & ((1 << indexBits) - 1);
+        return (address >> (blockOffset + byteOffset)) & ((1 << indexBits) - 1);
     }
 
     // calculate tag
     uint32_t getTag(uint32_t address) const
     {
-        return address >> (offsetBits + indexBits);
+        return address >> (blockOffset + byteOffset + indexBits);
     }
+
+    void LRUincr(uint32_t index);
+
+    uint32_t findReplacementBlock(uint32_t index);
 
 public:
     CacheConfig config;

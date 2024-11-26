@@ -50,14 +50,14 @@ Status runCycles(uint32_t cycles) {
         uint32_t cacheDelay = 0;  // initially no delay for cache read/write
 
         // handle iCache delay
-        cacheDelay += iCache->access(info.address, CACHE_READ) ? 0 : iCache->config.missLatency;
+        cacheDelay += iCache->access(info.pc, CACHE_READ) ? 0 : iCache->config.missLatency;
 
         // handle dCache delays (in a multicycle style)
         if (info.isValid && (info.opcode == OP_LBU || info.opcode == OP_LHU || info.opcode == OP_LW))
-            cacheDelay += dCache->access(info.address, CACHE_READ) ? 0 : iCache->config.missLatency;
+            cacheDelay += dCache->access(info.address, CACHE_READ) ? 0 : dCache->config.missLatency;
 
         if (info.isValid && (info.opcode == OP_SB || info.opcode == OP_SH || info.opcode == OP_SW))
-            cacheDelay += dCache->access(info.address, CACHE_WRITE) ? 0 : iCache->config.missLatency;
+            cacheDelay += dCache->access(info.address, CACHE_WRITE) ? 0 : dCache->config.missLatency;
 
         count += 1 + cacheDelay;
         cycleCount += 1 + cacheDelay;
@@ -87,7 +87,7 @@ Status runTillHalt() {
 // dump the state of the emulator
 Status finalizeSimulator() {
     emulator->dumpRegMem(output);
-    SimulationStats stats{ emulator->getDin(), cycleCount, };  // TODO: Incomplete Implementation
+    SimulationStats stats{ emulator->getDin(), cycleCount, iCache->getHits(), iCache->getMisses(), dCache->getHits(), dCache->getMisses()};  // TODO: Incomplete Implementation
     dumpSimStats(stats, output);
     return SUCCESS;
 }

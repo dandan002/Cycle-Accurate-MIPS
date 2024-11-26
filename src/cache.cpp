@@ -26,15 +26,19 @@ Cache::Cache(CacheConfig configParam, CacheDataType cacheType) : config(configPa
     // For instance, if you had cache tables or other structures, initialize them here
     hits = 0;
     misses = 0;
+
+    this->cacheType = cacheType;
     cacheSize = configParam.cacheSize;
     blockSize = configParam.blockSize;
     ways = configParam.ways;
-    missLatency = configParam.ways;
+    missLatency = configParam.missLatency;
     numSets = config.cacheSize / (blockSize * ways);
-    offsetBits = (uint32_t)log2((double)blockSize / 8);
+    
+    blockOffset = (uint32_t)log2((double)blockSize / 4);
     indexBits = (uint32_t)log2((double)numSets);
     cache.resize(numSets, vector<CacheEntry>(ways));
     lru.resize(numSets, vector<uint32_t>(ways));
+
 }
 
 // Access method definition
@@ -48,60 +52,54 @@ bool Cache::access(uint32_t address, CacheOperation readWrite)
     uint32_t index = getIndex(address);
     uint32_t tag = getTag(address);
 
-    bool hit = false;
+    // first update LRU values
+    LRUincr(index);
+
+    // now check if exists
     for (uint32_t i = 0; i < ways; i++)
     {
         if (cache[index][i].valid && cache[index][i].tag == tag)
         {
-            hit = true;
-            break;
+            lru[index][i] = 0;  // Reset LRU for this block
+            hits++;
+            return true;
         }
     }
 
-    if (hit)
+    misses++;
+    
+    uint32_t replaceIndex = findReplacementBlock(index);
+    cache[index][replaceIndex].tag = tag;
+    cache[index][replaceIndex].valid = true;
+    lru[index][replaceIndex] = 0;
+
+    return false;
+}
+
+void Cache::LRUincr(uint32_t index)
+{    
+    // Increment LRU all blocks
+    for (uint32_t i = 0; i < ways; i++)
     {
-        hits++;
+        lru[index][i]++;
     }
-    else
+}
+
+uint32_t Cache::findReplacementBlock(uint32_t index)
+{    
+    uint32_t maxLRU = 0;
+    uint32_t replacementIndex = 0;
+    
+    for (uint32_t i = 0; i < ways; i++)
     {
-        misses++;
-        // replace if there is any invalid
-        bool replaced = false;
-        for (uint32_t i = 0; i < ways; i++)
+        if (lru[index][i] > maxLRU)
         {
-            if (!cache[index][i].valid && !replaced)
-            {
-                cache[index][i].tag = tag;
-                cache[index][i].valid = true;
-                replaced = true;
-                lru[index][i] = 0;
-            }
-            else
-            {
-                lru[index][i] += 1;
-            }
-        }
-        if (!replaced)
-        {
-            uint32_t max_value = 0;
-            uint32_t max_index = 0;
-            for (uint32_t i = 0; i < lru[index].size(); i++)
-            {
-                if (lru[index][i] >= max_value)
-                {
-                    max_value = lru[index][i];
-                    max_index = i;
-                }
-                lru[index][i] += 1;
-            }
-
-            cache[index][max_index].tag = tag;
-            cache[index][max_index].valid = true;
-            lru[index][max_index] = 0;
+            maxLRU = lru[index][i];
+            replacementIndex = i;
         }
     }
-
-    return hit;
+    
+    return replacementIndex;
 }
 
 // Dump method definition, you can write your own dump info
