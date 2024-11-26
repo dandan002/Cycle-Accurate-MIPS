@@ -1,9 +1,12 @@
 # Ignore ./test/old_files folder
-./test/old_files/
+test/old_files/
 
 # Ignore all .out files in ./test/
-./test/*.out
+test/*.out
 
 # Ignore ./simcycle + ./sim_funct
-./sim_cycle
-./sim_funct
+sim_cycle
+sim_funct
+
+# Ignore SUMMARY_* files
+SUMMARY_*

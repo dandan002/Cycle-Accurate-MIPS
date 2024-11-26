@@ -52,3 +52,7 @@ clean:
 
 # Phony targets
 .PHONY: all debug tests clean
+
+rmout:
+	rm -f test/*.out
+	rm -f SUMMARY_*
