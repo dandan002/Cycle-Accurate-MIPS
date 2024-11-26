@@ -1,0 +1,30 @@
+{
+    "version": "2.0.0",
+    "tasks": [
+        {
+            "label": "build sim_cycle",
+            "type": "shell",
+            "command": "g++",
+            "args": [
+                "--std=c++14",
+                "-Wall",
+                "-g",
+                "-pedantic",
+                "-O2",
+                "-o",
+                "${workspaceFolder}/sim_cycle",
+                "${workspaceFolder}/src/sim_cycle.cpp",
+                "${workspaceFolder}/src/cycle.cpp",
+                "${workspaceFolder}/src/cache.cpp",
+                "${workspaceFolder}/src/emulator.cpp",
+                "${workspaceFolder}/src/MemoryStore.cpp",
+                "${workspaceFolder}/src/Utilities.cpp"
+            ],
+            "group": {
+                "kind": "build",
+                "isDefault": true
+            },
+            "problemMatcher": ["$gcc"]
+        }
+    ]
+}
