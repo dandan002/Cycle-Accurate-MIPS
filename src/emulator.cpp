@@ -41,7 +41,8 @@ uint32_t Emulator::signExt(uint16_t smol) {
 
 bool Emulator::checkOverflow(uint32_t val1, uint32_t val2) {
     int64_t result = int64_t(val1) + int64_t(val2);
-    if (result > INT32_MAX || result < INT32_MIN) {
+    // use UINT32_MAX here as the max value is uint32. I think we can prob get rid of the <0 but not sure. will leave for now cause it feels better LOL
+    if (result > UINT32_MAX || result < 0) {
         return true;
     }
     return false;
@@ -49,7 +50,7 @@ bool Emulator::checkOverflow(uint32_t val1, uint32_t val2) {
 
 bool Emulator::checkOverflowSigned(uint32_t val1, int32_t val2) {
     int64_t result = int64_t(val1) + int64_t(val2); 
-    if (result > INT32_MAX || result < INT32_MIN) {
+    if (result > UINT32_MAX || result < INT32_MIN) {
         return true; 
     }
     return false; 
