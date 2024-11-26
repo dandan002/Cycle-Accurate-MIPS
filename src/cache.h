@@ -67,7 +67,7 @@ private:
     std::vector<std::vector<CacheEntry>> cache;
 
     // lru
-    std::vector<std::vector<int>> lru;
+    std::vector<std::vector<uint32_t>> lru;
 
     // Calculate index
     uint32_t getIndex(uint32_t address) const

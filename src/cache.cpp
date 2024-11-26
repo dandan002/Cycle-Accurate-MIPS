@@ -16,11 +16,12 @@ using namespace std;
 // TODO: Modify this file to complete your implementation of the cache
 
 // Random generator for cache hit/miss simulation
-static std::mt19937 generator(42);  // Fixed seed for deterministic results
+static std::mt19937 generator(42); // Fixed seed for deterministic results
 std::uniform_real_distribution<double> distribution(0.0, 1.0);
 
 // Constructor definition
-Cache::Cache(CacheConfig configParam, CacheDataType cacheType) : config(configParam) {
+Cache::Cache(CacheConfig configParam, CacheDataType cacheType) : config(configParam)
+{
     // Here you can initialize other cache-specific attributes
     // For instance, if you had cache tables or other structures, initialize them here
     hits = 0;
@@ -30,57 +31,72 @@ Cache::Cache(CacheConfig configParam, CacheDataType cacheType) : config(configPa
     ways = configParam.ways;
     missLatency = configParam.ways;
     numSets = config.cacheSize / (blockSize * ways);
-    offsetBits = (uint32_t) log2((double) blockSize/8);
-    indexBits = (uint32_t) log2((double) numSets);
+    offsetBits = (uint32_t)log2((double)blockSize / 8);
+    indexBits = (uint32_t)log2((double)numSets);
     cache.resize(numSets, vector<CacheEntry>(ways));
-    lru.resize(numSets, vector<int>(ways));
+    lru.resize(numSets, vector<uint32_t>(ways));
 }
 
 // Access method definition
-bool Cache::access(uint32_t address, CacheOperation readWrite) {
+bool Cache::access(uint32_t address, CacheOperation readWrite)
+{
     // For simplicity, we're using a random boolean to simulate cache hit/miss
     // bool hit = distribution(generator) < 0.20;  // random 20% hit for a strange cache
     // hits += hit;
     // misses += !hit;
 
-    uint32_t index = getIndex(address);  
-    uint32_t tag = getTag(address);   
+    uint32_t index = getIndex(address);
+    uint32_t tag = getTag(address);
 
     bool hit = false;
-    for (int i = 0; i < ways; i++) {
-        if (cache[index][i].valid && cache[index][i].tag == tag) {
+    for (uint32_t i = 0; i < ways; i++)
+    {
+        if (cache[index][i].valid && cache[index][i].tag == tag)
+        {
             hit = true;
             break;
         }
     }
 
-    if (hit) {
+    if (hit)
+    {
         hits++;
-    } else {
+    }
+    else
+    {
         misses++;
         // replace if there is any invalid
         bool replaced = false;
-        for (int i = 0; i < ways; i++) {
-            if (!cache[index][i].valid) {
+        for (uint32_t i = 0; i < ways; i++)
+        {
+            if (!cache[index][i].valid && !replaced)
+            {
                 cache[index][i].tag = tag;
                 cache[index][i].valid = true;
                 replaced = true;
-                break;
+                lru[index][i] = 0;
             }
-        }
-        if (!replaced) {
-            uint32_t max_value;
-            uint32_t max_index;
-            for (uint32_t i = 0; i < set.size(); ++i) {
-                if (lru[index][i] > max_value) {
-                    max_value = lru[index][i];
-                    max_index = i;
-                } 
+            else
+            {
                 lru[index][i] += 1;
             }
-            
-            cache[index][max_index].tag = tag; 
-            cache[index][max_index].valid = true; 
+        }
+        if (!replaced)
+        {
+            uint32_t max_value = 0;
+            uint32_t max_index = 0;
+            for (uint32_t i = 0; i < lru[index].size(); i++)
+            {
+                if (lru[index][i] >= max_value)
+                {
+                    max_value = lru[index][i];
+                    max_index = i;
+                }
+                lru[index][i] += 1;
+            }
+
+            cache[index][max_index].tag = tag;
+            cache[index][max_index].valid = true;
             lru[index][max_index] = 0;
         }
     }
@@ -89,10 +105,12 @@ bool Cache::access(uint32_t address, CacheOperation readWrite) {
 }
 
 // Dump method definition, you can write your own dump info
-Status Cache::dump(const std::string& base_output_name) {
+Status Cache::dump(const std::string &base_output_name)
+{
     ofstream cache_out(base_output_name + "_cache_state.out");
     // dumpRegisterStateInternal(reg, cache_out);
-    if (cache_out) {
+    if (cache_out)
+    {
         cache_out << "---------------------" << endl;
         cache_out << "Begin Register Values" << endl;
         cache_out << "---------------------" << endl;
@@ -105,7 +123,9 @@ Status Cache::dump(const std::string& base_output_name) {
         cache_out << "End Register Values" << endl;
         cache_out << "---------------------" << endl;
         return SUCCESS;
-    } else {
+    }
+    else
+    {
         cerr << LOG_ERROR << "Could not create cache state dump file" << endl;
         return ERROR;
     }
