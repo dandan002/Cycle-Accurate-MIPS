@@ -17,6 +17,12 @@ static Emulator::InstructionInfo info;
 static uint32_t IF_DELAY;
 static uint32_t currIF;
 static PipeState pipeState;
+static bool HALTING; // is the halting instruction flowing thorugh the pipeline?
+
+// enum for specific instructions (i.e. halting)
+enum Instructions {
+    HALT_INSTRUCTION = 0xfeedfeed
+};
 
 // NOTE: The list of places in the source code that are marked ToDo might not be comprehensive.
 // Please keep this in mind as you work on the project.
@@ -38,10 +44,11 @@ Status initSimulator(CacheConfig &iCacheConfig, CacheConfig &dCacheConfig, Memor
     pipeState = {
         0,
     };
+    HALTING = false;
     return SUCCESS;
 }
 
-void moveAllForward(PipeState& pipline)
+void moveAllForward(PipeState &pipline)
 {
     pipline.wbInstr = pipline.memInstr;
     pipline.memInstr = pipline.exInstr;
@@ -50,7 +57,7 @@ void moveAllForward(PipeState& pipline)
     pipline.ifInstr = 0;
 }
 
-void moveInsertNop(PipeState& pipline)
+void stall_IF_stage(PipeState &pipline)
 {
     pipline.wbInstr = pipline.memInstr;
     pipline.memInstr = pipline.exInstr;
@@ -69,7 +76,7 @@ Status runCycles(uint32_t cycles)
     while (cycles == 0 || count < cycles)
     {
         uint32_t currentCycle = emulator->getCurCyle();
-        if (currentCycle == cycleCount)
+        if (currentCycle == cycleCount && !HALTING)
         {
             // here move all instructions one forward
             moveAllForward(pipeState);
@@ -92,24 +99,33 @@ Status runCycles(uint32_t cycles)
                 cacheDelay += dCache->access(info.address, CACHE_WRITE) ? 0 : dCache->config.missLatency;
 
             cycleCount += 1 + cacheDelay + IF_DELAY;
+
+            if (info.isHalt)
+            {
+                HALTING = true;
+            }
         }
         else
         {
-            moveInsertNop(pipeState);
+            if (HALTING) {
+                moveAllForward(pipeState);
+            } else {
+                stall_IF_stage(pipeState);
+            }
         }
 
         count += 1;
         pipeState.cycle = emulator->getCurCyle();
         emulator->ranCyle();
 
-        if (info.isHalt)
+        if (pipeState.wbInstr == HALT_INSTRUCTION)
         {
             status = HALT;
             break;
         }
     }
 
-    // Not exactly the right way, just a demonstration here
+    
     dumpPipeState(pipeState, output);
     return status;
 }
