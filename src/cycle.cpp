@@ -8,12 +8,16 @@
 #include "cache.h"
 #include "emulator.h"
 
+#include <iostream>
+using namespace std;
+
 static Emulator *emulator = nullptr;
 static Cache *iCache = nullptr;
 static Cache *dCache = nullptr;
 static std::string output;
 static Emulator::InstructionInfo info;
-static uint32_t IF_DELAY;
+static uint32_t ICACHE_DELAY;
+static uint32_t DCACHE_DELAY;
 static PipeState pipeState;
 static bool HALTING; // is the halting instruction flowing thorugh the pipeline?
 
@@ -47,6 +51,7 @@ Status initSimulator(CacheConfig &iCacheConfig, CacheConfig &dCacheConfig, Memor
     return SUCCESS;
 }
 
+// advances every part of the pipeline
 void moveAllForward(PipeState &pipline)
 {
     pipline.wbInstr = pipline.memInstr;
@@ -56,6 +61,7 @@ void moveAllForward(PipeState &pipline)
     pipline.ifInstr = 0;
 }
 
+// stalls only IF stage. This happens for icache misses but no dcache misses for instruction that is in id stage.
 void stall_IF_stage(PipeState &pipline)
 {
     pipline.wbInstr = pipline.memInstr;
@@ -64,40 +70,53 @@ void stall_IF_stage(PipeState &pipline)
     pipline.idInstr = 0;
 }
 
+// dummy function. We can get rid, but I think it's good for clarity reasons to have it. basically doesn't do anything so pipeline does not advance. 
+void stall_whole_pipeline(PipeState &pipline)
+{
+    return;
+}
+
 enum ControlSignal
 {
     HALT_INSTRUCT_IN_PIPELINE = 0,
-    FETCH_NEW = 100,
-    IF_CACHE_MISS = 200,
+    FETCH_NEW = 1,
+    STALL_LOAD_USE = 200,
+    STALL_BRANCH = 300,
+    I_CACHE_MISS = 2,
+    D_CACHE_MISS = 3,
 };
 
 // Control Detection Unit: returns pipeline behavior
-uint32_t Control(PipeState &pipline)
+uint32_t determinePipelineControl(PipeState &pipline)
 {
     uint32_t currentCycle = emulator->getCurCyle();
     pipline.cycle = currentCycle;
-    if (info.isHalt) {
-        return HALT_INSTRUCT_IN_PIPELINE;
-    } else if (IF_DELAY == 0 && !HALTING)
+    ControlSignal state;
+    // 8. 0xfeedfeed instruction completes its IF stage, instruction fetch should stop fetching instructions and insert NOPs. You should halt execution when the 0xfeedfeed has completed its WB stage
+    if (info.isHalt)
     {
-        return FETCH_NEW;
-    } else if (IF_DELAY > 0 && !HALTING) {
-        IF_DELAY -= 1;
-        return IF_CACHE_MISS;
+        state = HALT_INSTRUCT_IN_PIPELINE;
     }
 
-    if (false)
+    // ICACHE_DELAY == 0 -> no IF delay so pipeline is ready to fetch new instructions
+    if (ICACHE_DELAY == 0 && !HALTING)
     {
-        // handle dCache delays (in a multicycle style)
-        uint32_t cacheDelay;
-        if (info.isValid && (info.opcode == OP_LBU || info.opcode == OP_LHU || info.opcode == OP_LW))
-            cacheDelay += dCache->access(info.address, CACHE_READ) ? 0 : dCache->config.missLatency;
-
-        if (info.isValid && (info.opcode == OP_SB || info.opcode == OP_SH || info.opcode == OP_SW))
-            cacheDelay += dCache->access(info.address, CACHE_WRITE) ? 0 : dCache->config.missLatency;
+        if (DCACHE_DELAY == 0) {
+            state = FETCH_NEW;
+        } else {
+            state = D_CACHE_MISS;
+        }
     }
 
-    return 0;
+    // ICACHE_DELAY != 0 -> pipeline has an IF miss so can't fetch a new one
+    if (ICACHE_DELAY > 0 && !HALTING)
+    {
+        state = I_CACHE_MISS;
+    }
+
+    ICACHE_DELAY = (ICACHE_DELAY == 0) ? 0 : ICACHE_DELAY - 1;
+    DCACHE_DELAY = (DCACHE_DELAY == 0) ? 0 : DCACHE_DELAY - 1;
+    return state;
 }
 
 // Run the emulator for a certain number of cycles
@@ -110,7 +129,7 @@ Status runCycles(uint32_t cycles)
 
     while (cycles == 0 || count < cycles)
     {
-        uint32_t state = Control(pipeState);
+        ControlSignal state = determinePipelineControl(pipeline);
         if (state == FETCH_NEW)
         {
             // here move all instructions one forward
@@ -120,11 +139,24 @@ Status runCycles(uint32_t cycles)
             pipeState.ifInstr = info.instruction;
 
             // handle iCache delay
-            IF_DELAY = iCache->access(info.pc, CACHE_READ) ? 0 : iCache->config.missLatency;
+            ICACHE_DELAY = iCache->access(info.pc, CACHE_READ) ? 0 : iCache->config.missLatency;
+
+            // handle dCache delays (in a multicycle style)
+            if (info.isValid && (info.opcode == OP_LBU || info.opcode == OP_LHU || info.opcode == OP_LW))
+                DCACHE_DELAY += dCache->access(info.address, CACHE_READ) ? 0 : dCache->config.missLatency;
+
+            if (info.isValid && (info.opcode == OP_SB || info.opcode == OP_SH || info.opcode == OP_SW))
+                DCACHE_DELAY += dCache->access(info.address, CACHE_WRITE) ? 0 : dCache->config.missLatency;
         }
-        else if (state == IF_CACHE_MISS) {
+        else if (state == I_CACHE_MISS)
+        {
             stall_IF_stage(pipeState);
-        } else if (state == HALT_INSTRUCT_IN_PIPELINE) {
+        } 
+        else if (state == D_CACHE_MISS) {
+            stall_whole_pipeline(pipeState);
+        }
+        else if (state == HALT_INSTRUCT_IN_PIPELINE)
+        {
             moveAllForward(pipeState);
         }
 
