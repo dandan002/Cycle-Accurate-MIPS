@@ -80,14 +80,12 @@ enum ControlSignal
 {
     HALT_INSTRUCT_IN_PIPELINE = 0,
     FETCH_NEW = 1,
-    STALL_LOAD_USE = 200,
-    STALL_BRANCH = 300,
     I_CACHE_MISS = 2,
     D_CACHE_MISS = 3,
 };
 
 // Control Detection Unit: returns pipeline behavior
-uint32_t determinePipelineControl(PipeState &pipline)
+uint32_t Control(PipeState &pipline)
 {
     uint32_t currentCycle = emulator->getCurCyle();
     pipline.cycle = currentCycle;
@@ -119,6 +117,14 @@ uint32_t determinePipelineControl(PipeState &pipline)
     return state;
 }
 
+uint32_t extractBits(uint32_t instruction, int start, int end)
+{
+    int bitsToExtract = start - end + 1;
+    uint32_t mask = (1 << bitsToExtract) - 1;
+    uint32_t clipped = instruction >> end;
+    return clipped & mask;
+}
+
 // Run the emulator for a certain number of cycles
 // return HALT if the simulator halts on 0xfeedfeed
 // return SUCCESS if we have executed the desired number of cycles
@@ -129,25 +135,30 @@ Status runCycles(uint32_t cycles)
 
     while (cycles == 0 || count < cycles)
     {
-        ControlSignal state = determinePipelineControl(pipeline);
+        uint32_t state = Control(pipeState);
         if (state == FETCH_NEW)
         {
             // here move all instructions one forward
             moveAllForward(pipeState);
-
+            uint32_t MEM_OPCODE = extractBits(pipeState.memInstr, 31, 26);;
+            uint32_t MEM_ADDRESS = extractBits(pipeState.memInstr, 25, 0);;
+            
             info = emulator->executeInstruction();
             pipeState.ifInstr = info.instruction;
 
-            // handle iCache delay
+            // current PC is the one reading from Icache
             ICACHE_DELAY = iCache->access(info.pc, CACHE_READ) ? 0 : iCache->config.missLatency;
 
             // handle dCache delays (in a multicycle style)
-            if (info.isValid && (info.opcode == OP_LBU || info.opcode == OP_LHU || info.opcode == OP_LW))
-                DCACHE_DELAY += dCache->access(info.address, CACHE_READ) ? 0 : dCache->config.missLatency;
+            // NOTE: We are only reading/writing to Data Memory. Hence this is done in the MEM stage. The writeback stage is free as we can do forwarding I think so we dont have to worry about it (not 100% but I think so.)
+            // instruction in stage MEM is the one reading if lw
+            if (info.isValid && (MEM_OPCODE == OP_LBU || MEM_OPCODE == OP_LHU || MEM_OPCODE == OP_LW))
+                DCACHE_DELAY += dCache->access(MEM_ADDRESS, CACHE_READ) ? 0 : dCache->config.missLatency;
 
-            if (info.isValid && (info.opcode == OP_SB || info.opcode == OP_SH || info.opcode == OP_SW))
-                DCACHE_DELAY += dCache->access(info.address, CACHE_WRITE) ? 0 : dCache->config.missLatency;
-        }
+            // instruction in stage MEM is the one writing if sw
+            if (info.isValid && (MEM_OPCODE == OP_SB || MEM_OPCODE == OP_SH || MEM_OPCODE == OP_SW))
+                DCACHE_DELAY += dCache->access(MEM_ADDRESS, CACHE_WRITE) ? 0 : dCache->config.missLatency;
+            }
         else if (state == I_CACHE_MISS)
         {
             stall_IF_stage(pipeState);
