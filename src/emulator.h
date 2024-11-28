@@ -71,9 +71,6 @@ private:
     uint32_t din; // Dynamic instruction number
     uint32_t currentCycle;
 
-    // Helper function to extract specific bits [start, end] from a 32-bit instruction
-    uint extractBits(uint32_t instruction, int start, int end);
-
     // Helper function to sign extend a 16-bit integer to a 32-bit unsigned integer
     uint32_t signExt(uint16_t smol);
 
@@ -113,8 +110,10 @@ public:
     auto getCurCyle() { return currentCycle; }
     auto ranCyle() { currentCycle += 1; }
     auto getReg(uint32_t regNr) { return regData.registers[regNr]; }
-
     void setMemory(MemoryStore *mem) { memory = mem; }
+
+    // Helper function to extract specific bits [start, end] from a 32-bit instruction
+    uint extractBits(uint32_t instruction, int start, int end);
 
     // functionally execute one instruction
     InstructionInfo executeInstruction();

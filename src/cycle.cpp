@@ -37,13 +37,16 @@ enum ControlSignal
     BRANCH_STALL = 4,
 };
 
-// helper function to get opcode and address (copied from emulator.cpp)
-uint32_t extractBits(uint32_t instruction, int start, int end)
+// Helper function to check if a given opcode is a load function
+bool isLoad(uint32_t OPCODE)
 {
-    int bitsToExtract = start - end + 1;
-    uint32_t mask = (1 << bitsToExtract) - 1;
-    uint32_t clipped = instruction >> end;
-    return clipped & mask;
+    return (OPCODE == OP_LBU || OPCODE == OP_LHU || OPCODE == OP_LW);
+}
+
+// Helper function to check if a given opcode is a store function
+bool isStore(uint32_t OPCODE)
+{
+    return (OPCODE == OP_SB || OPCODE == OP_SH || OPCODE == OP_SW);
 }
 
 // NOTE: The list of places in the source code that are marked ToDo might not be comprehensive.
@@ -70,55 +73,6 @@ Status initSimulator(CacheConfig &iCacheConfig, CacheConfig &dCacheConfig, Memor
     return SUCCESS;
 }
 
-// advances every part of the pipeline
-void moveAllForward(PipeState &pipeline)
-{
-    pipeline.wbInstr = pipeline.memInstr;
-    pipeline.memInstr = pipeline.exInstr;
-    pipeline.exInstr = pipeline.idInstr;
-    pipeline.idInstr = pipeline.ifInstr;
-    pipeline.ifInstr = 0;
-
-    pipeline.wbInstr_addr = pipeline.memInstr_addr;
-    pipeline.memInstr_addr = pipeline.exInstr_addr;
-    pipeline.exInstr_addr = pipeline.idInstr_addr;
-    pipeline.idInstr_addr = pipeline.ifInstr_addr;
-    pipeline.ifInstr_addr = 0;
-}
-
-// stalls only IF stage. This happens for icache misses but no dcache misses for instruction that is in id stage.
-void stall_IF_stage(PipeState &pipeline)
-{
-    pipeline.wbInstr = pipeline.memInstr;
-    pipeline.memInstr = pipeline.exInstr;
-    pipeline.exInstr = pipeline.idInstr;
-    pipeline.idInstr = 0;
-
-    pipeline.wbInstr_addr = pipeline.memInstr_addr;
-    pipeline.memInstr_addr = pipeline.exInstr_addr;
-    pipeline.exInstr_addr = pipeline.idInstr_addr;
-    pipeline.idInstr_addr = 0;
-}
-
-// Basically doesn't do anything so pipeline does not advance EXCEPT the WB stage which is a nop due to the rest waiting
-void stall_IF_ID_EX_MEM_stage(PipeState &pipeline)
-{
-    pipeline.wbInstr = 0;
-    pipeline.wbInstr_addr = 0;
-    return;
-}
-
-void stall_ID_BRACH_stage(PipeState &pipeline)
-{
-    pipeline.wbInstr = pipeline.memInstr;
-    pipeline.memInstr = pipeline.exInstr;
-    pipeline.exInstr = 0;
-
-    pipeline.wbInstr_addr = pipeline.memInstr_addr;
-    pipeline.memInstr_addr = pipeline.exInstr_addr;
-    pipeline.exInstr_addr = 0;
-}
-
 // Control Detection Unit: returns pipeline behavior
 uint32_t Control(PipeState &pipeline)
 {
@@ -128,9 +82,9 @@ uint32_t Control(PipeState &pipeline)
     bool BRANCH_NOP = false;
 
     // check if current state of pipeline requires branch stall (i.e. branch reg is in ex stage)
-    uint32_t ID_OPCODE = extractBits(pipeline.idInstr, 31, 26);
-    uint32_t ID_RS = extractBits(pipeline.idInstr, 25, 21);
-    uint32_t EX_RS = extractBits(pipeline.exInstr, 25, 21);
+    uint32_t ID_OPCODE = emulator->extractBits(pipeline.idInstr, 31, 26);
+    uint32_t ID_RS = emulator->extractBits(pipeline.idInstr, 25, 21);
+    uint32_t EX_RS = emulator->extractBits(pipeline.exInstr, 25, 21);
 
     // check if nop after branch is needed (if Ex state write to same place as )
     if (info.isValid && (ID_OPCODE == OP_BLEZ || ID_OPCODE == OP_BGTZ) && ID_RS == EX_RS)
@@ -175,17 +129,17 @@ void execute_DCACHE_write_Check(PipeState &pipeline)
     // handle dCache delays (in a multicycle style)
     // NOTE: We are only reading/writing to Data Memory. Hence this is done in the MEM stage. The writeback stage is free as we can do forwarding I think so we dont have to worry about it (not 100% but I think so.)
     // instruction in stage MEM is the one reading if lw
-    uint32_t MEM_OPCODE = extractBits(pipeline.memInstr, 31, 26);
+    uint32_t MEM_OPCODE = emulator->extractBits(pipeline.memInstr, 31, 26);
     uint32_t MEM_ADDRESS = pipeline.memInstr_addr;
 
     // instruction in stage MEM is the one writing if sw
-    if (info.isValid && (MEM_OPCODE == OP_SB || MEM_OPCODE == OP_SH || MEM_OPCODE == OP_SW))
+    if (info.isValid && isStore(MEM_OPCODE))
     {
         DCACHE_DELAY += dCache->access(MEM_ADDRESS, CACHE_WRITE) ? 0 : dCache->config.missLatency;
     }
 
     // TODO: check if this should be info.isValid or the mem stage on if.valid
-    if (info.isValid && (MEM_OPCODE == OP_LBU || MEM_OPCODE == OP_LHU || MEM_OPCODE == OP_LW))
+    if (info.isValid && isLoad(MEM_OPCODE))
     {
         DCACHE_DELAY += dCache->access(MEM_ADDRESS, CACHE_READ) ? 0 : dCache->config.missLatency;
     }
@@ -210,13 +164,13 @@ Status runCycles(uint32_t cycles)
             info = emulator->executeInstruction();
             pipeState.ifInstr = info.instruction;
 
-            uint32_t IF_OPCODE = extractBits(pipeState.ifInstr, 31, 26);
-            if (IF_OPCODE == OP_SB || IF_OPCODE == OP_SH || IF_OPCODE == OP_SW)
+            uint32_t IF_OPCODE = emulator->extractBits(pipeState.ifInstr, 31, 26);
+            if (isStore(IF_OPCODE))
             {
                 pipeState.ifInstr_addr = info.storeAddress;
             }
 
-            if ((IF_OPCODE == OP_LBU || IF_OPCODE == OP_LHU || IF_OPCODE == OP_LW))
+            if (isLoad(IF_OPCODE))
             {
                 pipeState.ifInstr_addr = info.loadAddress;
             }
