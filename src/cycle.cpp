@@ -34,7 +34,17 @@ enum ControlSignal
     FETCH_NEW = 1,
     I_CACHE_MISS = 2,
     D_CACHE_MISS = 3,
+    BRANCH_STALL = 4,
 };
+
+// helper function to get opcode and address (copied from emulator.cpp)
+uint32_t extractBits(uint32_t instruction, int start, int end)
+{
+    int bitsToExtract = start - end + 1;
+    uint32_t mask = (1 << bitsToExtract) - 1;
+    uint32_t clipped = instruction >> end;
+    return clipped & mask;
+}
 
 // NOTE: The list of places in the source code that are marked ToDo might not be comprehensive.
 // Please keep this in mind as you work on the project.
@@ -61,57 +71,85 @@ Status initSimulator(CacheConfig &iCacheConfig, CacheConfig &dCacheConfig, Memor
 }
 
 // advances every part of the pipeline
-void moveAllForward(PipeState &pipline)
+void moveAllForward(PipeState &pipeline)
 {
-    pipline.wbInstr = pipline.memInstr;
-    pipline.memInstr = pipline.exInstr;
-    pipline.exInstr = pipline.idInstr;
-    pipline.idInstr = pipline.ifInstr;
-    pipline.ifInstr = 0;
+    pipeline.wbInstr = pipeline.memInstr;
+    pipeline.memInstr = pipeline.exInstr;
+    pipeline.exInstr = pipeline.idInstr;
+    pipeline.idInstr = pipeline.ifInstr;
+    pipeline.ifInstr = 0;
 
-    pipline.wbInstr_addr = pipline.memInstr_addr;
-    pipline.memInstr_addr = pipline.exInstr_addr;
-    pipline.exInstr_addr = pipline.idInstr_addr;
-    pipline.idInstr_addr = pipline.ifInstr_addr;
-    pipline.ifInstr_addr = 0;
+    pipeline.wbInstr_addr = pipeline.memInstr_addr;
+    pipeline.memInstr_addr = pipeline.exInstr_addr;
+    pipeline.exInstr_addr = pipeline.idInstr_addr;
+    pipeline.idInstr_addr = pipeline.ifInstr_addr;
+    pipeline.ifInstr_addr = 0;
 }
 
 // stalls only IF stage. This happens for icache misses but no dcache misses for instruction that is in id stage.
-void stall_IF_stage(PipeState &pipline)
+void stall_IF_stage(PipeState &pipeline)
 {
-    pipline.wbInstr = pipline.memInstr;
-    pipline.memInstr = pipline.exInstr;
-    pipline.exInstr = pipline.idInstr;
-    pipline.idInstr = 0;
+    pipeline.wbInstr = pipeline.memInstr;
+    pipeline.memInstr = pipeline.exInstr;
+    pipeline.exInstr = pipeline.idInstr;
+    pipeline.idInstr = 0;
 
-    pipline.wbInstr_addr = pipline.memInstr_addr;
-    pipline.memInstr_addr = pipline.exInstr_addr;
-    pipline.exInstr_addr = pipline.idInstr_addr;
-    pipline.idInstr_addr = 0;
+    pipeline.wbInstr_addr = pipeline.memInstr_addr;
+    pipeline.memInstr_addr = pipeline.exInstr_addr;
+    pipeline.exInstr_addr = pipeline.idInstr_addr;
+    pipeline.idInstr_addr = 0;
 }
 
 // Basically doesn't do anything so pipeline does not advance EXCEPT the WB stage which is a nop due to the rest waiting
-void stall_IF_ID_EX_MEM_stage(PipeState &pipline)
+void stall_IF_ID_EX_MEM_stage(PipeState &pipeline)
 {
-    pipline.wbInstr = 0;
-    pipline.wbInstr_addr = 0;
+    pipeline.wbInstr = 0;
+    pipeline.wbInstr_addr = 0;
     return;
 }
 
+void stall_ID_BRACH_stage(PipeState &pipeline)
+{
+    pipeline.wbInstr = pipeline.memInstr;
+    pipeline.memInstr = pipeline.exInstr;
+    pipeline.exInstr = 0;
+
+    pipeline.wbInstr_addr = pipeline.memInstr_addr;
+    pipeline.memInstr_addr = pipeline.exInstr_addr;
+    pipeline.exInstr_addr = 0;
+}
+
 // Control Detection Unit: returns pipeline behavior
-uint32_t Control(PipeState &pipline)
+uint32_t Control(PipeState &pipeline)
 {
     uint32_t currentCycle = emulator->getCurCyle();
-    pipline.cycle = currentCycle;
+    pipeline.cycle = currentCycle;
     ControlSignal state;
-    // 8. 0xfeedfeed instruction completes its IF stage, instruction fetch should stop fetching instructions and insert NOPs. You should halt execution when the 0xfeedfeed has completed its WB stage
+    bool BRANCH_NOP = false; 
+
+    // check if current state of pipeline requires branch stall (i.e. branch reg is in ex stage)
+    uint32_t ID_OPCODE = extractBits(pipeline.idInstr, 31, 26);
+    uint32_t ID_RS = extractBits(pipeline.idInstr, 25, 21);
+    uint32_t EX_RS = extractBits(pipeline.exInstr, 25, 21);
+
+    // check if nop after branch is needed (if Ex state write to same place as )
+    if (info.isValid && (ID_OPCODE == OP_BLEZ || ID_OPCODE == OP_BGTZ) && ID_RS == EX_RS)
+    {
+        BRANCH_NOP = true;
+    }
+
+    // assign state to variable to decide which way to go in main loop
     if (info.isHalt)
     {
         state = HALT_INSTRUCT_IN_PIPELINE;
     }
-    else if (DCACHE_DELAY == 0 && ICACHE_DELAY == 0 && !HALTING)
+    else if (DCACHE_DELAY == 0 && ICACHE_DELAY == 0 && !BRANCH_NOP && !HALTING)
     {
         state = FETCH_NEW;
+    }
+    else if (DCACHE_DELAY == 0 && ICACHE_DELAY == 0 && BRANCH_NOP && !HALTING)
+    {
+        state = BRANCH_STALL;
     }
     else if (DCACHE_DELAY == 0 && ICACHE_DELAY > 0 && !HALTING)
     {
@@ -132,22 +170,13 @@ uint32_t Control(PipeState &pipline)
     return state;
 }
 
-// helper function to get opcode and address (copied from emulator.cpp)
-uint32_t extractBits(uint32_t instruction, int start, int end)
-{
-    int bitsToExtract = start - end + 1;
-    uint32_t mask = (1 << bitsToExtract) - 1;
-    uint32_t clipped = instruction >> end;
-    return clipped & mask;
-}
-
-void execute_DCACHE_write_Check(PipeState &pipline)
+void execute_DCACHE_write_Check(PipeState &pipeline)
 {
     // handle dCache delays (in a multicycle style)
     // NOTE: We are only reading/writing to Data Memory. Hence this is done in the MEM stage. The writeback stage is free as we can do forwarding I think so we dont have to worry about it (not 100% but I think so.)
     // instruction in stage MEM is the one reading if lw
-    uint32_t MEM_OPCODE = extractBits(pipline.memInstr, 31, 26);
-    uint32_t MEM_ADDRESS = pipline.memInstr_addr;
+    uint32_t MEM_OPCODE = extractBits(pipeline.memInstr, 31, 26);
+    uint32_t MEM_ADDRESS = pipeline.memInstr_addr;
 
     // instruction in stage MEM is the one writing if sw
     // ?????? WHY WTF
@@ -200,6 +229,10 @@ Status runCycles(uint32_t cycles)
         else if (state == D_CACHE_MISS)
         {
             stall_IF_ID_EX_MEM_stage(pipeState);
+        }
+        else if (state == BRANCH_STALL)
+        {
+            stall_ID_BRACH_stage(pipeState);
         }
         else if (state == HALT_INSTRUCT_IN_PIPELINE)
         {
