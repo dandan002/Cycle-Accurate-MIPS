@@ -125,7 +125,7 @@ uint32_t Control(PipeState &pipeline)
     uint32_t currentCycle = emulator->getCurCyle();
     pipeline.cycle = currentCycle;
     ControlSignal state;
-    bool BRANCH_NOP = false; 
+    bool BRANCH_NOP = false;
 
     // check if current state of pipeline requires branch stall (i.e. branch reg is in ex stage)
     uint32_t ID_OPCODE = extractBits(pipeline.idInstr, 31, 26);
@@ -210,7 +210,8 @@ Status runCycles(uint32_t cycles)
 
             info = emulator->executeInstruction();
             pipeState.ifInstr = info.instruction;
-            pipeState.ifInstr_addr = emulator->getReg(info.rs) + info.immediate;
+            uint32_t contentRS = emulator->getReg(info.rs);
+            pipeState.ifInstr_addr = contentRS + info.immediate;
 
             // Conduct ICACHECHECK here. No need for function as we will only do when we fetch a new instruction.
             // current PC is the one reading from Icache
