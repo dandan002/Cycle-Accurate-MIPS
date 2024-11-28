@@ -337,3 +337,54 @@ Status dumpSimStats(SimulationStats &stats, const std::string &base_output_name)
         return ERROR;
     }
 }
+
+// advances every part of the pipeline
+void moveAllForward(PipeState &pipeline)
+{
+    pipeline.wbInstr = pipeline.memInstr;
+    pipeline.memInstr = pipeline.exInstr;
+    pipeline.exInstr = pipeline.idInstr;
+    pipeline.idInstr = pipeline.ifInstr;
+    pipeline.ifInstr = 0;
+
+    pipeline.wbInstr_addr = pipeline.memInstr_addr;
+    pipeline.memInstr_addr = pipeline.exInstr_addr;
+    pipeline.exInstr_addr = pipeline.idInstr_addr;
+    pipeline.idInstr_addr = pipeline.ifInstr_addr;
+    pipeline.ifInstr_addr = 0;
+}
+
+// stalls only IF stage. This happens for icache misses but no dcache misses for instruction that is in id stage.
+void stall_IF_stage(PipeState &pipeline)
+{
+    pipeline.wbInstr = pipeline.memInstr;
+    pipeline.memInstr = pipeline.exInstr;
+    pipeline.exInstr = pipeline.idInstr;
+    pipeline.idInstr = 0;
+
+    pipeline.wbInstr_addr = pipeline.memInstr_addr;
+    pipeline.memInstr_addr = pipeline.exInstr_addr;
+    pipeline.exInstr_addr = pipeline.idInstr_addr;
+    pipeline.idInstr_addr = 0;
+}
+
+// Basically doesn't do anything so pipeline does not advance EXCEPT the WB stage which is a nop due to the rest waiting
+void stall_IF_ID_EX_MEM_stage(PipeState &pipeline)
+{
+    pipeline.wbInstr = 0;
+    pipeline.wbInstr_addr = 0;
+    return;
+}
+
+void stall_ID_BRACH_stage(PipeState &pipeline)
+{
+    pipeline.wbInstr = pipeline.memInstr;
+    pipeline.memInstr = pipeline.exInstr;
+    pipeline.exInstr = 0;
+
+    pipeline.wbInstr_addr = pipeline.memInstr_addr;
+    pipeline.memInstr_addr = pipeline.exInstr_addr;
+    pipeline.exInstr_addr = 0;
+}
+
+

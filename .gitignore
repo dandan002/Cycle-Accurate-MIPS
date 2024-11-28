@@ -10,3 +10,6 @@ sim_funct
 
 # Ignore SUMMARY_* files
 SUMMARY_*
+
+# ignore scratch
+scratch.cpp

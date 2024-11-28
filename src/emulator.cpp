@@ -19,6 +19,7 @@ Emulator::Emulator()
     savedBranch = 0;
     regData.reg = {};
     din = 0;
+    currentCycle = 0;
 }
 
 Emulator::~Emulator()
