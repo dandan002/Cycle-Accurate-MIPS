@@ -16,8 +16,10 @@ static Cache *iCache = nullptr;
 static Cache *dCache = nullptr;
 static std::string output;
 static Emulator::InstructionInfo info;
-static uint32_t ICACHE_DELAY;
-static uint32_t DCACHE_DELAY;
+static uint32_t icache_delay;
+static uint32_t dcache_delay;
+static uint32_t branch_delay;
+static uint32_t lastBranchCycleCount;
 static PipeState pipeState;
 static bool HALTING; // is the halting instruction flowing thorugh the pipeline?
 
@@ -34,7 +36,8 @@ enum ControlSignal
     FETCH_NEW = 1,
     I_CACHE_MISS = 2,
     D_CACHE_MISS = 3,
-    BRANCH_STALL = 4,
+    LOAD_USE_STALL = 4,
+    BRANCH_STALL = 5,
 };
 
 // Helper function to check if a given opcode is a load function
@@ -70,6 +73,7 @@ Status initSimulator(CacheConfig &iCacheConfig, CacheConfig &dCacheConfig, Memor
         0,
     };
     HALTING = false;
+    lastBranchCycleCount = 0;
     return SUCCESS;
 }
 
@@ -79,37 +83,50 @@ uint32_t Control(PipeState &pipeline)
     uint32_t currentCycle = emulator->getCurCyle();
     pipeline.cycle = currentCycle;
     ControlSignal state;
-    bool BRANCH_NOP = false;
 
     // check if current state of pipeline requires branch stall (i.e. branch reg is in ex stage)
     uint32_t ID_OPCODE = emulator->extractBits(pipeline.idInstr, 31, 26);
+    uint32_t EX_OPCODE = emulator->extractBits(pipeline.exInstr, 31, 26);
+
     uint32_t ID_RS = emulator->extractBits(pipeline.idInstr, 25, 21);
     uint32_t EX_RS = emulator->extractBits(pipeline.exInstr, 25, 21);
 
     // check if nop after branch is needed (if Ex state write to same place as )
-    if (info.isValid && (ID_OPCODE == OP_BLEZ || ID_OPCODE == OP_BGTZ) && ID_RS == EX_RS)
+    // CHECK: Do we need to include BNE, BEQ here as well?
+    // CHECK: Other dependencies here? Can we just assume if not load -> arithmetic?
+    if ((ID_OPCODE == OP_BLEZ || ID_OPCODE == OP_BGTZ) && ID_RS == EX_RS && lastBranchCycleCount != info.instructionID)
     {
-        BRANCH_NOP = true;
+        if (isLoad(EX_OPCODE))
+        {
+            branch_delay = 2;
+        }
+        else
+        {
+            branch_delay = 1;
+        }
+        // NOTE: I think this is necessary to make sure we don't keep getting into the if statement when we hit a branch but simultaneously a dcache miss. To not get stuck like doing 8 dcache latencymisses + 2 for branch instead of including the 2 in the 8.
+        lastBranchCycleCount = info.instructionID;
     }
 
     // assign state to variable to decide which way to go in main loop
+    // CHECK: what if it's a load brach stall but I_CACHE is >0? What should be done in that case? - Answer: I think these two should be independent
     if (info.isHalt)
     {
         state = HALT_INSTRUCT_IN_PIPELINE;
     }
-    else if (DCACHE_DELAY == 0 && ICACHE_DELAY == 0 && !BRANCH_NOP && !HALTING)
-    {
-        state = FETCH_NEW;
-    }
-    else if (DCACHE_DELAY == 0 && ICACHE_DELAY == 0 && BRANCH_NOP && !HALTING)
+    else if (dcache_delay == 0 && branch_delay > 0 && !HALTING)
     {
         state = BRANCH_STALL;
     }
-    else if (DCACHE_DELAY == 0 && ICACHE_DELAY > 0 && !HALTING)
+    else if (dcache_delay == 0 && icache_delay == 0 && branch_delay == 0 && !HALTING)
+    {
+        state = FETCH_NEW;
+    }
+    else if (dcache_delay == 0 && icache_delay > 0 && !HALTING)
     {
         state = I_CACHE_MISS;
     }
-    else if (DCACHE_DELAY > 0 && !HALTING)
+    else if (dcache_delay > 0 && !HALTING)
     {
         state = D_CACHE_MISS;
     }
@@ -119,8 +136,9 @@ uint32_t Control(PipeState &pipeline)
     }
 
     // reduce delay by 1 with floor of 0 (do every time irrespective of what happened)
-    ICACHE_DELAY = (ICACHE_DELAY == 0) ? 0 : ICACHE_DELAY - 1;
-    DCACHE_DELAY = (DCACHE_DELAY == 0) ? 0 : DCACHE_DELAY - 1;
+    icache_delay = (icache_delay == 0) ? 0 : icache_delay - 1;
+    dcache_delay = (dcache_delay == 0) ? 0 : dcache_delay - 1;
+    branch_delay = (branch_delay == 0) ? 0 : branch_delay - 1;
     return state;
 }
 
@@ -135,13 +153,12 @@ void execute_DCACHE_write_Check(PipeState &pipeline)
     // instruction in stage MEM is the one writing if sw
     if (info.isValid && isStore(MEM_OPCODE))
     {
-        DCACHE_DELAY += dCache->access(MEM_ADDRESS, CACHE_WRITE) ? 0 : dCache->config.missLatency;
+        dcache_delay += dCache->access(MEM_ADDRESS, CACHE_WRITE) ? 0 : dCache->config.missLatency;
     }
 
-    // TODO: check if this should be info.isValid or the mem stage on if.valid
     if (info.isValid && isLoad(MEM_OPCODE))
     {
-        DCACHE_DELAY += dCache->access(MEM_ADDRESS, CACHE_READ) ? 0 : dCache->config.missLatency;
+        dcache_delay += dCache->access(MEM_ADDRESS, CACHE_READ) ? 0 : dCache->config.missLatency;
     }
 }
 
@@ -177,7 +194,7 @@ Status runCycles(uint32_t cycles)
 
             // Conduct ICACHECHECK here. No need for function as we will only do when we fetch a new instruction.
             // current PC is the one reading from Icache
-            ICACHE_DELAY = iCache->access(info.pc, CACHE_READ) ? 0 : iCache->config.missLatency;
+            icache_delay = iCache->access(info.pc, CACHE_READ) ? 0 : iCache->config.missLatency;
 
             // checks if current MEM stage misses or hits
             execute_DCACHE_write_Check(pipeState);
@@ -195,7 +212,7 @@ Status runCycles(uint32_t cycles)
         }
         else if (state == BRANCH_STALL)
         {
-            stall_ID_BRACH_stage(pipeState);
+            BRANCH_stall(pipeState);
         }
         else if (state == HALT_INSTRUCT_IN_PIPELINE)
         {

@@ -86,4 +86,4 @@ void stall_IF_stage(PipeState &pipeline);
 void stall_IF_ID_EX_MEM_stage(PipeState &pipeline);
 
 // advances everything except ID for branch
-void stall_ID_BRACH_stage(PipeState &pipeline);
+void BRANCH_stall(PipeState &pipeline);

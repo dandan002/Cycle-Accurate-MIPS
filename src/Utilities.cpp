@@ -376,7 +376,7 @@ void stall_IF_ID_EX_MEM_stage(PipeState &pipeline)
     return;
 }
 
-void stall_ID_BRACH_stage(PipeState &pipeline)
+void BRANCH_stall(PipeState &pipeline)
 {
     pipeline.wbInstr = pipeline.memInstr;
     pipeline.memInstr = pipeline.exInstr;
