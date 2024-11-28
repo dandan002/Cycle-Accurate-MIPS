@@ -179,7 +179,6 @@ void execute_DCACHE_write_Check(PipeState &pipeline)
     uint32_t MEM_ADDRESS = pipeline.memInstr_addr;
 
     // instruction in stage MEM is the one writing if sw
-    // ?????? WHY WTF
     if (info.isValid && (MEM_OPCODE == OP_SB || MEM_OPCODE == OP_SH || MEM_OPCODE == OP_SW))
     {
         DCACHE_DELAY += dCache->access(MEM_ADDRESS, CACHE_WRITE) ? 0 : dCache->config.missLatency;
@@ -210,8 +209,17 @@ Status runCycles(uint32_t cycles)
 
             info = emulator->executeInstruction();
             pipeState.ifInstr = info.instruction;
-            uint32_t contentRS = emulator->getReg(info.rs);
-            pipeState.ifInstr_addr = contentRS + info.immediate;
+
+            uint32_t IF_OPCODE = extractBits(pipeState.ifInstr, 31, 26);
+            if (IF_OPCODE == OP_SB || IF_OPCODE == OP_SH || IF_OPCODE == OP_SW)
+            {
+                pipeState.ifInstr_addr = info.storeAddress;
+            }
+
+            if ((IF_OPCODE == OP_LBU || IF_OPCODE == OP_LHU || IF_OPCODE == OP_LW))
+            {
+                pipeState.ifInstr_addr = info.loadAddress;
+            }
 
             // Conduct ICACHECHECK here. No need for function as we will only do when we fetch a new instruction.
             // current PC is the one reading from Icache
