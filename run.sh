@@ -17,6 +17,18 @@ usage() {
     exit 1
 }
 
+make clean
+if [ $? -ne 0 ]; then
+    echo "Error: make clean failed"
+    exit 1
+fi
+
+make
+if [ $? -ne 0 ]; then
+    echo "Error: make failed"
+    exit 1
+fi
+
 # Parse command-line options
 while getopts ":b:c:h" opt; do
     case ${opt} in

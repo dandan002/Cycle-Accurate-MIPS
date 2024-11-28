@@ -10,7 +10,7 @@
                 "-Wall",
                 "-g",
                 "-pedantic",
-                "-O2",
+                "-O0",
                 "-o",
                 "${workspaceFolder}/sim_cycle",
                 "${workspaceFolder}/src/sim_cycle.cpp",
@@ -24,7 +24,9 @@
                 "kind": "build",
                 "isDefault": true
             },
-            "problemMatcher": ["$gcc"]
+            "problemMatcher": [
+                "$gcc"
+            ]
         }
     ]
 }
