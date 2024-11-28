@@ -56,7 +56,7 @@ private:
     uint32_t ways;
     // Additional miss latency in cycles.
     uint32_t missLatency;
-    
+
     // number of sets
     uint32_t numSets;
     // offsetBits
@@ -77,7 +77,7 @@ private:
 
     // Calculate index
     uint32_t getIndex(uint32_t address) const
-    {   
+    {
         return (address >> (blockOffset + byteOffset)) & ((1 << indexBits) - 1);
     }
 

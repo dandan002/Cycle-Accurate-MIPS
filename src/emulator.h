@@ -112,6 +112,7 @@ public:
     auto getMemory() { return memory; }
     auto getCurCyle() { return currentCycle; }
     auto ranCyle() { currentCycle += 1; }
+    auto getReg(uint32_t regNr) { return regData.registers[regNr]; }
 
     void setMemory(MemoryStore *mem) { memory = mem; }
 

@@ -17,45 +17,61 @@
 #define LOG_VAR(var) \
     #var << ": " << var << " "
 
+enum Status
+{
+    SUCCESS = 0,
+    ERROR = 1,
+    HALT = 2
+};
 
-enum Status { SUCCESS = 0, ERROR = 1, HALT = 2 };
-
-struct PipeState {
+struct PipeState
+{
     uint32_t cycle;
     uint32_t ifInstr;
     uint32_t idInstr;
     uint32_t exInstr;
     uint32_t memInstr;
     uint32_t wbInstr;
+
+    uint32_t ifInstr_addr;
+    uint32_t idInstr_addr;
+    uint32_t exInstr_addr;
+    uint32_t memInstr_addr;
+    uint32_t wbInstr_addr;
 };
 
-struct SimulationStats {
+struct SimulationStats
+{
     uint32_t dynamicInstructions;
     uint32_t totalCycles;
     uint32_t icHits;
     uint32_t icMisses;
     uint32_t dcHits;
     uint32_t dcMisses;
-// NOTE: loadStalls tracks both load-arithmetic and load-branch stalls
+    // NOTE: loadStalls tracks both load-arithmetic and load-branch stalls
     uint32_t loadStalls;
 };
 
 // Implemented in UtilityFunctions.o
-Status dumpPipeState(PipeState& state, const std::string& base_output_name);
-Status dumpSimStats(SimulationStats& stats, const std::string& base_output_name);
+Status dumpPipeState(PipeState &state, const std::string &base_output_name);
+Status dumpSimStats(SimulationStats &stats, const std::string &base_output_name);
 
 // Endian Helpers
 inline uint32_t ConvertWordToBigEndian(uint32_t value) { return htonl(value); }
 inline uint16_t ConvertHalfWordToBigEndian(uint16_t value) { return htons(value); }
 
 // handle output file names
-inline std::string getBaseFilename(const char* inputPath) {
+inline std::string getBaseFilename(const char *inputPath)
+{
     std::string path(inputPath);
     size_t end = path.rfind('.');
 
-    if (end != std::string::npos) {
+    if (end != std::string::npos)
+    {
         return path.substr(0, end);
-    } else {
+    }
+    else
+    {
         return path;
     }
 }

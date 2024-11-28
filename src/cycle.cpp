@@ -68,6 +68,12 @@ void moveAllForward(PipeState &pipline)
     pipline.exInstr = pipline.idInstr;
     pipline.idInstr = pipline.ifInstr;
     pipline.ifInstr = 0;
+
+    pipline.wbInstr_addr = pipline.memInstr_addr;
+    pipline.memInstr_addr = pipline.exInstr_addr;
+    pipline.exInstr_addr = pipline.idInstr_addr;
+    pipline.idInstr_addr = pipline.ifInstr_addr;
+    pipline.ifInstr_addr = 0;
 }
 
 // stalls only IF stage. This happens for icache misses but no dcache misses for instruction that is in id stage.
@@ -77,12 +83,18 @@ void stall_IF_stage(PipeState &pipline)
     pipline.memInstr = pipline.exInstr;
     pipline.exInstr = pipline.idInstr;
     pipline.idInstr = 0;
+
+    pipline.wbInstr_addr = pipline.memInstr_addr;
+    pipline.memInstr_addr = pipline.exInstr_addr;
+    pipline.exInstr_addr = pipline.idInstr_addr;
+    pipline.idInstr_addr = 0;
 }
 
 // Basically doesn't do anything so pipeline does not advance EXCEPT the WB stage which is a nop due to the rest waiting
 void stall_IF_ID_EX_MEM_stage(PipeState &pipline)
 {
     pipline.wbInstr = 0;
+    pipline.wbInstr_addr = 0;
     return;
 }
 
@@ -129,21 +141,26 @@ uint32_t extractBits(uint32_t instruction, int start, int end)
     return clipped & mask;
 }
 
-void execute_DCACHE_Check(PipeState &pipline)
+void execute_DCACHE_write_Check(PipeState &pipline)
 {
     // handle dCache delays (in a multicycle style)
     // NOTE: We are only reading/writing to Data Memory. Hence this is done in the MEM stage. The writeback stage is free as we can do forwarding I think so we dont have to worry about it (not 100% but I think so.)
     // instruction in stage MEM is the one reading if lw
     uint32_t MEM_OPCODE = extractBits(pipline.memInstr, 31, 26);
-    uint32_t MEM_ADDRESS = extractBits(pipline.memInstr, 25, 0);
+    uint32_t MEM_ADDRESS = pipline.memInstr_addr;
+
+    // instruction in stage MEM is the one writing if sw
+    // ?????? WHY WTF
+    if (info.isValid && (MEM_OPCODE == OP_SB || MEM_OPCODE == OP_SH || MEM_OPCODE == OP_SW))
+    {
+        DCACHE_DELAY += dCache->access(MEM_ADDRESS, CACHE_WRITE) ? 0 : dCache->config.missLatency;
+    }
 
     // TODO: check if this should be info.isValid or the mem stage on if.valid
     if (info.isValid && (MEM_OPCODE == OP_LBU || MEM_OPCODE == OP_LHU || MEM_OPCODE == OP_LW))
+    {
         DCACHE_DELAY += dCache->access(MEM_ADDRESS, CACHE_READ) ? 0 : dCache->config.missLatency;
-
-    // instruction in stage MEM is the one writing if sw
-    if (info.isValid && (MEM_OPCODE == OP_SB || MEM_OPCODE == OP_SH || MEM_OPCODE == OP_SW))
-        DCACHE_DELAY += dCache->access(MEM_ADDRESS, CACHE_WRITE) ? 0 : dCache->config.missLatency;
+    }
 }
 
 // Run the emulator for a certain number of cycles
@@ -164,20 +181,21 @@ Status runCycles(uint32_t cycles)
 
             info = emulator->executeInstruction();
             pipeState.ifInstr = info.instruction;
+            pipeState.ifInstr_addr = emulator->getReg(info.rs) + info.immediate;
 
             // Conduct ICACHECHECK here. No need for function as we will only do when we fetch a new instruction.
             // current PC is the one reading from Icache
             ICACHE_DELAY = iCache->access(info.pc, CACHE_READ) ? 0 : iCache->config.missLatency;
 
             // checks if current MEM stage misses or hits
-            execute_DCACHE_Check(pipeState);
+            execute_DCACHE_write_Check(pipeState);
         }
         else if (state == I_CACHE_MISS)
         {
             stall_IF_stage(pipeState);
 
             // checks if current MEM stage misses or hits
-            execute_DCACHE_Check(pipeState);
+            execute_DCACHE_write_Check(pipeState);
         }
         else if (state == D_CACHE_MISS)
         {
