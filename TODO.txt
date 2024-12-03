@@ -1,0 +1,14 @@
+List of things that have to be completed:
+
+TODO: Check forwarding from load to the data input of a store (i.e.,
+register rt) without a stall cycle in between (in other words, a WB->MEM
+forward from the load to the store)
+TODO: All other cases of forwarding to a store should forward when the store is in the EX stage.
+TODO: Forwarding to ID for the execution of branches. You may need to add stall
+cycles between the forwarding instruction and the branch in ID for the
+forwarding to work
+TODO: one-cycle load-use stall, 
+TODO: one-cycle arithmetic-branch stall, 
+TODO: two-cycle load-branch stall
+TODO: Check that dependencies on the zero register shouldn’t cause a stall
+TODO: figure out what info.isVAlid should be used for
