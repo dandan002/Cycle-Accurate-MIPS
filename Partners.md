@@ -2,10 +2,10 @@
 
 ### Group
 
-- [name_1 - netid_1: email_1]
-- [name_2 - netid_2: email_2]
-- [name_3 - netid_3: email_3]
-- [name_4 - netid_4: email_4]
+- Kenzy Elshazly - ke1995: ke1995@princeton.edu
+- Daniel Jung - wj8091: wj8091@princeton.edu
+- Max Gonzalez Saez-Diez - saezdiez: saezdiez@princeton.edu
+- Kayla Waitman - kw2689: kwaitman@princeton.edu
 
 ## Time Investment
 
@@ -56,4 +56,4 @@
 - [Acknowledgement of student 1]
 - [Acknowledgement of student 2]
 - [Acknowledgement of student 3]
-- [Acknowledgement of student 4]
+- This programming assignment represents my own work in accordance with University regulations and the course syllabus.  /s/ Kayla Waitman
