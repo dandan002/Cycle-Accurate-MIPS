@@ -337,4 +337,3 @@ Status dumpSimStats(SimulationStats &stats, const std::string &base_output_name)
         return ERROR;
     }
 }
-
