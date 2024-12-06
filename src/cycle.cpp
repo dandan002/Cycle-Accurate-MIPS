@@ -11,6 +11,16 @@
 #include <iostream>
 using namespace std;
 
+// keep executed address at each pipelines step
+struct PipeStateAddr
+{
+    uint32_t ifInstr_addr;
+    uint32_t idInstr_addr;
+    uint32_t exInstr_addr;
+    uint32_t memInstr_addr;
+    uint32_t wbInstr_addr;
+};
+
 static Emulator *emulator = nullptr;
 static Cache *iCache = nullptr;
 static Cache *dCache = nullptr;
@@ -21,7 +31,9 @@ static uint32_t dcache_delay;
 static uint32_t branch_delay;
 static uint32_t lastBranchCycleCount;
 static PipeState pipeState;
+static PipeStateAddr pipeStateAddr;
 static bool HALTING; // is the halting instruction flowing thorugh the pipeline?
+static uint32_t currentCycle;
 
 // enum for specific instructions (i.e. halting)
 enum Instructions
@@ -40,6 +52,15 @@ enum ControlSignal
     BRANCH_STALL = 5,
 };
 
+// extract specific bits [start, end] from a 32 bit instruction
+uint extractBitsAddr(uint32_t instruction, int start, int end)
+{
+    int bitsToExtract = start - end + 1;
+    uint32_t mask = (1 << bitsToExtract) - 1;
+    uint32_t clipped = instruction >> end;
+    return clipped & mask;
+}
+
 // Helper function to check if a given opcode is a load function
 bool isLoad(uint32_t OPCODE)
 {
@@ -50,6 +71,55 @@ bool isLoad(uint32_t OPCODE)
 bool isStore(uint32_t OPCODE)
 {
     return (OPCODE == OP_SB || OPCODE == OP_SH || OPCODE == OP_SW);
+}
+
+// advances every part of the pipeline
+void moveAllForward(PipeState &pipeline, PipeStateAddr &pipelineAddr)
+{
+    pipeline.wbInstr = pipeline.memInstr;
+    pipeline.memInstr = pipeline.exInstr;
+    pipeline.exInstr = pipeline.idInstr;
+    pipeline.idInstr = pipeline.ifInstr;
+    pipeline.ifInstr = 0;
+
+    pipelineAddr.wbInstr_addr = pipelineAddr.memInstr_addr;
+    pipelineAddr.memInstr_addr = pipelineAddr.exInstr_addr;
+    pipelineAddr.exInstr_addr = pipelineAddr.idInstr_addr;
+    pipelineAddr.idInstr_addr = pipelineAddr.ifInstr_addr;
+    pipelineAddr.ifInstr_addr = 0;
+}
+
+// stalls only IF stage. This happens for icache misses but no dcache misses for instruction that is in id stage.
+void stall_IF_stage(PipeState &pipeline, PipeStateAddr &pipelineAddr)
+{
+    pipeline.wbInstr = pipeline.memInstr;
+    pipeline.memInstr = pipeline.exInstr;
+    pipeline.exInstr = pipeline.idInstr;
+    pipeline.idInstr = 0;
+
+    pipelineAddr.wbInstr_addr = pipelineAddr.memInstr_addr;
+    pipelineAddr.memInstr_addr = pipelineAddr.exInstr_addr;
+    pipelineAddr.exInstr_addr = pipelineAddr.idInstr_addr;
+    pipelineAddr.idInstr_addr = 0;
+}
+
+// Basically doesn't do anything so pipeline does not advance EXCEPT the WB stage which is a nop due to the rest waiting
+void stall_IF_ID_EX_MEM_stage(PipeState &pipeline, PipeStateAddr &pipelineAddr)
+{
+    pipeline.wbInstr = 0;
+    pipelineAddr.wbInstr_addr = 0;
+    return;
+}
+
+void BRANCH_stall(PipeState &pipeline, PipeStateAddr &pipelineAddr)
+{
+    pipeline.wbInstr = pipeline.memInstr;
+    pipeline.memInstr = pipeline.exInstr;
+    pipeline.exInstr = 0;
+
+    pipelineAddr.wbInstr_addr = pipelineAddr.memInstr_addr;
+    pipelineAddr.memInstr_addr = pipelineAddr.exInstr_addr;
+    pipelineAddr.exInstr_addr = 0;
 }
 
 // NOTE: The list of places in the source code that are marked ToDo might not be comprehensive.
@@ -72,6 +142,10 @@ Status initSimulator(CacheConfig &iCacheConfig, CacheConfig &dCacheConfig, Memor
     pipeState = {
         0,
     };
+    pipeStateAddr = {
+        0,
+    };
+    currentCycle = 0;
     HALTING = false;
     lastBranchCycleCount = 0;
     return SUCCESS;
@@ -80,16 +154,15 @@ Status initSimulator(CacheConfig &iCacheConfig, CacheConfig &dCacheConfig, Memor
 // Control Detection Unit: returns pipeline behavior
 uint32_t Control(PipeState &pipeline)
 {
-    uint32_t currentCycle = emulator->getCurCyle();
     pipeline.cycle = currentCycle;
     ControlSignal state;
 
     // check if current state of pipeline requires branch stall (i.e. branch reg is in ex stage)
-    uint32_t ID_OPCODE = emulator->extractBits(pipeline.idInstr, 31, 26);
-    uint32_t EX_OPCODE = emulator->extractBits(pipeline.exInstr, 31, 26);
+    uint32_t ID_OPCODE = extractBitsAddr(pipeline.idInstr, 31, 26);
+    uint32_t EX_OPCODE = extractBitsAddr(pipeline.exInstr, 31, 26);
 
-    uint32_t ID_RS = emulator->extractBits(pipeline.idInstr, 25, 21);
-    uint32_t EX_RS = emulator->extractBits(pipeline.exInstr, 25, 21);
+    uint32_t ID_RS = extractBitsAddr(pipeline.idInstr, 25, 21);
+    uint32_t EX_RS = extractBitsAddr(pipeline.exInstr, 25, 21);
 
     // check if nop after branch is needed (if Ex state write to same place as )
     // CHECK: Do we need to include BNE, BEQ here as well?
@@ -142,13 +215,13 @@ uint32_t Control(PipeState &pipeline)
     return state;
 }
 
-void execute_DCACHE_write_Check(PipeState &pipeline)
+void execute_DCACHE_write_Check(PipeState &pipeline, PipeStateAddr &pipelineAddr)
 {
     // handle dCache delays (in a multicycle style)
     // NOTE: We are only reading/writing to Data Memory. Hence this is done in the MEM stage. The writeback stage is free as we can do forwarding I think so we dont have to worry about it (not 100% but I think so.)
     // instruction in stage MEM is the one reading if lw
-    uint32_t MEM_OPCODE = emulator->extractBits(pipeline.memInstr, 31, 26);
-    uint32_t MEM_ADDRESS = pipeline.memInstr_addr;
+    uint32_t MEM_OPCODE = extractBitsAddr(pipeline.memInstr, 31, 26);
+    uint32_t MEM_ADDRESS = pipelineAddr.memInstr_addr;
 
     // instruction in stage MEM is the one writing if sw
     if (info.isValid && isStore(MEM_OPCODE))
@@ -176,20 +249,20 @@ Status runCycles(uint32_t cycles)
         if (state == FETCH_NEW)
         {
             // here move all instructions one forward
-            moveAllForward(pipeState);
+            moveAllForward(pipeState, pipeStateAddr);
 
             info = emulator->executeInstruction();
             pipeState.ifInstr = info.instruction;
 
-            uint32_t IF_OPCODE = emulator->extractBits(pipeState.ifInstr, 31, 26);
+            uint32_t IF_OPCODE = extractBitsAddr(pipeState.ifInstr, 31, 26);
             if (isStore(IF_OPCODE))
             {
-                pipeState.ifInstr_addr = info.storeAddress;
+                pipeStateAddr.ifInstr_addr = info.storeAddress;
             }
 
             if (isLoad(IF_OPCODE))
             {
-                pipeState.ifInstr_addr = info.loadAddress;
+                pipeStateAddr.ifInstr_addr = info.loadAddress;
             }
 
             // Conduct ICACHECHECK here. No need for function as we will only do when we fetch a new instruction.
@@ -197,30 +270,30 @@ Status runCycles(uint32_t cycles)
             icache_delay = iCache->access(info.pc, CACHE_READ) ? 0 : iCache->config.missLatency;
 
             // checks if current MEM stage misses or hits
-            execute_DCACHE_write_Check(pipeState);
+            execute_DCACHE_write_Check(pipeState, pipeStateAddr);
         }
         else if (state == I_CACHE_MISS)
         {
-            stall_IF_stage(pipeState);
+            stall_IF_stage(pipeState, pipeStateAddr);
 
             // checks if current MEM stage misses or hits
-            execute_DCACHE_write_Check(pipeState);
+            execute_DCACHE_write_Check(pipeState, pipeStateAddr);
         }
         else if (state == D_CACHE_MISS)
         {
-            stall_IF_ID_EX_MEM_stage(pipeState);
+            stall_IF_ID_EX_MEM_stage(pipeState, pipeStateAddr);
         }
         else if (state == BRANCH_STALL)
         {
-            BRANCH_stall(pipeState);
+            BRANCH_stall(pipeState, pipeStateAddr);
         }
         else if (state == HALT_INSTRUCT_IN_PIPELINE)
         {
-            moveAllForward(pipeState);
+            moveAllForward(pipeState, pipeStateAddr);
         }
 
         count += 1;
-        emulator->ranCyle();
+        currentCycle += 1;
 
         if (pipeState.wbInstr == HALT_INSTRUCTION)
         {
@@ -253,7 +326,8 @@ Status runTillHalt()
 Status finalizeSimulator()
 {
     emulator->dumpRegMem(output);
-    SimulationStats stats{emulator->getDin(), emulator->getCurCyle(), iCache->getHits(), iCache->getMisses(), dCache->getHits(), dCache->getMisses()}; // TODO: Incomplete Implementation
+    SimulationStats stats{emulator->getDin(), currentCycle, iCache->getHits(), iCache->getMisses(), dCache->getHits(), dCache->getMisses()}; // TODO: Incomplete Implementation
+    // TODO: Load use Stalls
     dumpSimStats(stats, output);
     return SUCCESS;
 }

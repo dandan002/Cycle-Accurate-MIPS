@@ -69,16 +69,19 @@ private:
     bool encounteredBranch;
     uint32_t savedBranch;
     uint32_t din; // Dynamic instruction number
-    uint32_t currentCycle;
+    // uint32_t currentCycle;
+
+    // Helper function to extract specific bits [start, end] from a 32-bit instruction
+    uint extractBits(uint32_t instruction, int start, int end);
 
     // Helper function to sign extend a 16-bit integer to a 32-bit unsigned integer
     uint32_t signExt(uint16_t smol);
 
     // check overflow
-    bool checkOverflow(uint32_t val1, uint32_t val2);
-    bool checkOverflowSigned(uint32_t val1, int32_t val2);
+    // bool checkOverflow(uint32_t val1, uint32_t val2);
+    // bool checkOverflowSigned(uint32_t val1, int32_t val2);
 
-  public:
+public:
     Emulator();
     ~Emulator();
 
@@ -111,13 +114,10 @@ private:
     auto getPC() { return PC; }
     auto getDin() { return din; }
     auto getMemory() { return memory; }
-    auto getCurCyle() { return currentCycle; }
-    auto ranCyle() { currentCycle += 1; }
-    auto getReg(uint32_t regNr) { return regData.registers[regNr]; }
+    // auto getCurCyle() { return currentCycle; }
+    // auto ranCyle() { currentCycle += 1; }
+    // auto getReg(uint32_t regNr) { return regData.registers[regNr]; }
     void setMemory(MemoryStore *mem) { memory = mem; }
-
-    // Helper function to extract specific bits [start, end] from a 32-bit instruction
-    uint extractBits(uint32_t instruction, int start, int end);
 
     // functionally execute one instruction
     InstructionInfo executeInstruction();

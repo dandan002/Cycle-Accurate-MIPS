@@ -10,6 +10,27 @@
 #include <iostream>
 using namespace std;
 
+bool checkOverflow(uint32_t val1, uint32_t val2)
+{
+    int64_t result = int64_t(val1) + int64_t(val2);
+    // use UINT32_MAX here as the max value is uint32. I think we can prob get rid of the <0 but not sure. will leave for now cause it feels better LOL
+    if (result > UINT32_MAX || result < 0)
+    {
+        return true;
+    }
+    return false;
+}
+
+bool checkOverflowSigned(uint32_t val1, int32_t val2)
+{
+    int64_t result = int64_t(val1) + int64_t(val2);
+    if (result > UINT32_MAX || result < INT32_MIN)
+    {
+        return true;
+    }
+    return false;
+}
+
 Emulator::Emulator()
 {
     // Initialize member variables
@@ -19,7 +40,7 @@ Emulator::Emulator()
     savedBranch = 0;
     regData.reg = {};
     din = 0;
-    currentCycle = 0;
+    // currentCycle = 0;
 }
 
 Emulator::~Emulator()
@@ -43,27 +64,6 @@ uint32_t Emulator::signExt(uint16_t smol)
     uint32_t x = smol;
     uint32_t extension = 0xffff0000;
     return (smol & 0x8000) ? x ^ extension : x;
-}
-
-bool Emulator::checkOverflow(uint32_t val1, uint32_t val2)
-{
-    int64_t result = int64_t(val1) + int64_t(val2);
-    // use UINT32_MAX here as the max value is uint32. I think we can prob get rid of the <0 but not sure. will leave for now cause it feels better LOL
-    if (result > UINT32_MAX || result < 0)
-    {
-        return true;
-    }
-    return false;
-}
-
-bool Emulator::checkOverflowSigned(uint32_t val1, int32_t val2)
-{
-    int64_t result = int64_t(val1) + int64_t(val2);
-    if (result > UINT32_MAX || result < INT32_MIN)
-    {
-        return true;
-    }
-    return false;
 }
 
 // dump registers and memory

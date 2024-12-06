@@ -11,4 +11,4 @@ TODO: one-cycle load-use stall,
 TODO: one-cycle arithmetic-branch stall, 
 TODO: two-cycle load-branch stall
 TODO: Check that dependencies on the zero register shouldn’t cause a stall
-TODO: figure out what info.isVAlid should be used for
+TODO: figure out what info.isVAlid should be used for. 

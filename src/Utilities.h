@@ -33,11 +33,11 @@ struct PipeState
     uint32_t memInstr;
     uint32_t wbInstr;
 
-    uint32_t ifInstr_addr;
-    uint32_t idInstr_addr;
-    uint32_t exInstr_addr;
-    uint32_t memInstr_addr;
-    uint32_t wbInstr_addr;
+    // uint32_t ifInstr_addr;
+    // uint32_t idInstr_addr;
+    // uint32_t exInstr_addr;
+    // uint32_t memInstr_addr;
+    // uint32_t wbInstr_addr;
 };
 
 struct SimulationStats
@@ -76,14 +76,14 @@ inline std::string getBaseFilename(const char *inputPath)
     }
 }
 
-// advances every part of the pipeline
-void moveAllForward(PipeState &pipeline);
+// // advances every part of the pipeline
+// void moveAllForward(PipeState &pipeline);
 
-// stalls only IF stage. This happens for icache misses but no dcache misses for instruction that is in id stage.
-void stall_IF_stage(PipeState &pipeline);
+// // stalls only IF stage. This happens for icache misses but no dcache misses for instruction that is in id stage.
+// void stall_IF_stage(PipeState &pipeline);
 
-// Basically doesn't do anything so pipeline does not advance EXCEPT the WB stage which is a nop due to the rest waiting
-void stall_IF_ID_EX_MEM_stage(PipeState &pipeline);
+// // Basically doesn't do anything so pipeline does not advance EXCEPT the WB stage which is a nop due to the rest waiting
+// void stall_IF_ID_EX_MEM_stage(PipeState &pipeline);
 
-// advances everything except ID for branch
-void BRANCH_stall(PipeState &pipeline);
+// // advances everything except ID for branch
+// void BRANCH_stall(PipeState &pipeline);
