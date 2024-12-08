@@ -1,5 +1,8 @@
 # test/test_exception.asm
 
+# NOTE: Properly functioning code should store 0xDEADBEEF  
+# at memory address 0x000000c8 and 0xDEADBEF0 at 0x000000cc 
+
 # Initialize registers with values
     li $t0, 5           # $t0 = 5
     li $t1, 10          # $t1 = 10
