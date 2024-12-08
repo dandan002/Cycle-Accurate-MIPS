@@ -208,21 +208,22 @@ uint32_t Control(PipeState &pipeline)
 
     // assign state to variable to decide which way to go in main loop
     // CHECK: what if it's a load brach stall but I_CACHE is >0? What should be done in that case? - Answer: I think these two should be independent
-    if (info.isOverflow || nopArithmeticExcept > 0) 
+    if (info.isOverflow || nopArithmeticExcept > 0)
     {
         state = ARITHMETIC_OVERFLOW;
-        if (nopArithmeticExcept == 0) 
+        if (nopArithmeticExcept == 0)
         {
             nopArithmeticExcept = 2;
         }
-    } else if (!info.isValid || nopIllegalInstruct > 0) 
+    }
+    else if (!info.isValid || nopIllegalInstruct > 0)
     {
         state = ILLEGAL_INSTRUCION;
-        if (nopIllegalInstruct == 0) 
+        if (nopIllegalInstruct == 0)
         {
             nopIllegalInstruct = 1;
         }
-    } 
+    }
     else if (info.isHalt)
     {
         state = HALT_INSTRUCT_IN_PIPELINE;
@@ -231,7 +232,7 @@ uint32_t Control(PipeState &pipeline)
     {
         state = BRANCH_STALL;
     }
-    else if (dcache_delay == 0 && icache_delay == 0 && branch_delay == 0 && !HALTING)
+    else if ((dcache_delay == 0 && icache_delay == 0 && branch_delay == 0 && !HALTING) || squashID)
     {
         state = FETCH_NEW;
     }
@@ -291,11 +292,14 @@ Status runCycles(uint32_t cycles)
             // here move all instructions one forward
             moveAllForward(pipeState, pipeStateAddr);
 
-            if (squashID) {
+            if (squashID)
+            {
                 pipeState.exInstr = 0;
                 pipeStateAddr.exInstr_addr = 0;
                 squashID = false;
-            } else if (squashEX) {
+            }
+            else if (squashEX)
+            {
                 pipeState.memInstr = 0;
                 pipeStateAddr.memInstr_addr = 0;
                 squashEX = false;
@@ -340,21 +344,23 @@ Status runCycles(uint32_t cycles)
         else if (state == HALT_INSTRUCT_IN_PIPELINE)
         {
             moveAllForward(pipeState, pipeStateAddr);
-        } 
-        else if (state == ARITHMETIC_OVERFLOW) 
+        }
+        else if (state == ARITHMETIC_OVERFLOW)
         {
             insertNopException(pipeState, pipeStateAddr);
             nopArithmeticExcept -= 1;
-            if (nopArithmeticExcept == 0) {
+            if (nopArithmeticExcept == 0)
+            {
                 squashEX = true;
             }
             info.isOverflow = false;
         }
-        else if (state == ILLEGAL_INSTRUCION) 
+        else if (state == ILLEGAL_INSTRUCION)
         {
             insertNopException(pipeState, pipeStateAddr);
             nopIllegalInstruct -= 1;
-            if (nopIllegalInstruct == 0) {
+            if (nopIllegalInstruct == 0)
+            {
                 squashID = true;
             }
             info.isValid = true;
