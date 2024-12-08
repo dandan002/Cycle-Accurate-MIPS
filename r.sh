@@ -7,10 +7,6 @@
 test_folder="./test"  # Current directory
 cache_config_name="cache_config"
 
-# Step 1: Delete all .out files in the folder
-echo "Cleaning up .out files..."
-find "$test_folder" -type f -name "*.out" -exec rm -f {} \;
-
 make clean
 if [ $? -ne 0 ]; then
     echo "Error: make clean failed"
@@ -22,6 +18,10 @@ if [ $? -ne 0 ]; then
     echo "Error: make failed"
     exit 1
 fi
+
+# Step 1: Delete all .out files in the folder
+echo "Cleaning up .out files..."
+find "$test_folder" -type f -name "*.out" -exec rm -f {} \;
 
 # Step 2: Iterate over each .bin file and run the commands
 for bin_file in "$test_folder"/*.bin; do
@@ -86,5 +86,10 @@ for student_file in "$test_folder"/*.student; do
         echo "Warning: Corresponding .out file for $student_file not found."
     fi
 done
+
+# Clean up all .bin and .elf files in the folder
+echo "Cleaning up .bin and .elf files..."
+find "$test_folder" -type f -name "*.bin" -exec rm -f {} \;
+find "$test_folder" -type f -name "*.elf" -exec rm -f {} \;
 
 echo "All tasks completed!"
