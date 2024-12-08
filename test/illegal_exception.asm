@@ -1,11 +1,12 @@
 # test/test_exception.asm
 
 # Initialize registers with values
-    li $t0, 5      # $t0 = 5
-    li $t1, 10     # $t1 = 10
-    li $t2, 15     # $t2 = 15
-    li $t3, 20     # $t3 = 20
-    li $t4, 25     # $t4 = 25
+    li $t0, 5           # $t0 = 5
+    li $t1, 10          # $t1 = 10
+    li $t2, 15          # $t2 = 15
+    li $t3, 20          # $t3 = 20
+    li $t4, 25          # $t4 = 25
+    li $t6, 0x000000b4  # $t6 = 180
 
 # Add values and store results
     add $t5, $t0, $t1   # $t5 = $t0 + $t1 = 15
@@ -31,5 +32,8 @@
 
 exception_handler:
     li   $t3, 0xDEADBEEF    # Load a test value to confirm execution here
+    li   $t6, 0x000000c8    # $t6 = 200
+    sw   $t3, 0($t6)        # Store the value of $t3 into memory at address in $t6
     addi $t3, $t3, 1        # Increment to check exception behavior 
+    sw   $t3, 4($t6)        # Store the value of $t3 into memory at address in $t6
     .word 0xfeedfeed        # End of exception handler
