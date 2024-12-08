@@ -23,6 +23,11 @@
 # Illegal instruction (multiply not supported)
     mul $t5, $t5, $t0   # This should cause an illegal instruction exception
     sw $t5, 16($t6)     # This instruction should not execute
+    .word 0xfeedfeed    # This instruction should not execute
+
+# Align so the handler executes
+    .align 12           # Align to a 0x1000-byte boundary
+    .org 0x8000         # Start placing the subsequent instructions at 0x8000
 
 exception_handler:
     li   $t3, 0xDEADBEEF    # Load a test value to confirm execution here
