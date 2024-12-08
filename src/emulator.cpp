@@ -12,28 +12,33 @@
 
 using namespace std;
 
-bool checkOverflow(uint32_t val1, uint32_t val2)
+bool checkOverflowUnsigned(uint32_t val1, uint32_t val2)
 {
-    int64_t result = int64_t(val1) + int64_t(val2);
+    uint64_t result = val1 + val2;
     // use UINT32_MAX here as the max value is uint32. I think we can prob get rid of the <0 but not sure. will leave for now cause it feels better LOL
-    if (result > UINT32_MAX || result < 0)
+    // uint32_t t = INT_MIN;
+    // int32_t t1 = INT_MAX;
+    // int32_t t2 = INT32_MAX;
+    // uint32_t t3 = UINT32_MAX;
+
+    if (result > UINT32_MAX)
     {
         return true;
     }
     return false;
 }
 
-bool checkOverflowSigned(uint32_t val1, int32_t val2)
+bool checkOverflowSigned(int32_t val1, int32_t val2)
 {
     int64_t result = int64_t(val1) + int64_t(val2);
-    if (result > UINT32_MAX || result < INT32_MIN)
+    if (result > INT32_MAX || result < INT32_MIN)
     {
         return true;
     }
     return false;
 }
 
-bool checkUnderflow(uint32_t val1, uint32_t val2)
+bool checkUnderflowUnsigned(uint32_t val1, uint32_t val2)
 {
     int64_t result = int64_t(val1) - int64_t(val2);
     if (result < 0)
@@ -170,7 +175,7 @@ Emulator::InstructionInfo Emulator::executeInstruction()
             a = regData.registers[rs];
             b = regData.registers[rt];
 
-            if (checkOverflow(a, b))
+            if (checkOverflowSigned(a, b))
             {
                 info.isOverflow = true;
             }
@@ -183,7 +188,7 @@ Emulator::InstructionInfo Emulator::executeInstruction()
             a = regData.registers[rs];
             b = regData.registers[rt];
 
-            if (checkOverflow(a, b))
+            if (checkOverflowUnsigned(a, b))
             {
                 info.isOverflow = true;
             }
@@ -235,7 +240,7 @@ Emulator::InstructionInfo Emulator::executeInstruction()
             a = regData.registers[rs];
             b = regData.registers[rt];
 
-            if (checkUnderflow(a, b))
+            if (checkUnderflowUnsigned(a, b))
             {
                 info.isOverflow = true;
             }
@@ -250,6 +255,7 @@ Emulator::InstructionInfo Emulator::executeInstruction()
         }
         break;
 
+    // Bug: fix this
     case OP_ADDI:
         a = regData.registers[rs];
         c = signExtImm;
