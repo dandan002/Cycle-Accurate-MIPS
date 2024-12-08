@@ -23,3 +23,8 @@
 # Illegal instruction (multiply not supported)
     mul $t5, $t5, $t0   # This should cause an illegal instruction exception
     sw $t5, 16($t6)     # This instruction should not execute
+
+exception_handler:
+    li   $t3, 0xDEADBEEF    # Load a test value to confirm execution here
+    addi $t3, $t3, 1        # Increment to check exception behavior 
+    .word 0xfeedfeed        # End of exception handler
