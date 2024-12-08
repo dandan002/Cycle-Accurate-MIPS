@@ -56,7 +56,7 @@ enum ControlSignal
     LOAD_USE_STALL = 4,
     BRANCH_STALL = 5,
     ARITHMETIC_OVERFLOW = 6,
-    ILLEGAL_INSTRUCION = 7
+    ILLEGAL_INSTRUCION = 7,
 };
 
 // extract specific bits [start, end] from a 32 bit instruction
@@ -78,6 +78,12 @@ bool isLoad(uint32_t OPCODE)
 bool isStore(uint32_t OPCODE)
 {
     return (OPCODE == OP_SB || OPCODE == OP_SH || OPCODE == OP_SW);
+}
+
+// Helper function to check if a given opcode is a branch function
+bool isBranch(uint32_t OPCODE)
+{
+    return (OPCODE == OP_BLEZ || OPCODE == OP_BGTZ || OPCODE == OP_BEQ || OPCODE == OP_BNE);
 }
 
 // advances every part of the pipeline
@@ -206,43 +212,89 @@ uint32_t Control(PipeState &pipeline)
     // check if nop after branch is needed (if Ex state write to same place as)
     // [x]: Do we need to include BNE, BEQ here as well? - Yes
     // CHECK: Other dependencies here? Can we just assume if not load -> arithmetic?
-    if (
-        (ID_OPCODE == OP_BLEZ || ID_OPCODE == OP_BGTZ) &&
-        ID_RS == EX_RT &&
-        lastBranchCycleCount != info.instructionID)
-    {
-        if (isLoad(EX_OPCODE))
-        {
-            branch_delay = 2;
-        }
-        else
-        {
-            branch_delay = 1;
-        }
-        // NOTE: I think this is necessary to make sure we don't keep getting into the if statement when we hit a branch but simultaneously a dcache miss. To not get stuck like doing 8 dcache latencymisses + 2 for branch instead of including the 2 in the 8.
-        lastBranchCycleCount = info.instructionID;
-    }
+    // if (
+    //     (ID_OPCODE == OP_BLEZ || ID_OPCODE == OP_BGTZ) &&
+    //     ID_RS == EX_RT &&
+    //     lastBranchCycleCount != info.instructionID)
+    // {
+    //     if (isLoad(EX_OPCODE))
+    //     {
+    //         branch_delay = 2;
+    //     }
+    //     else
+    //     {
+    //         branch_delay = 1;
+    //     }
+    //     // NOTE: I think this is necessary to make sure we don't keep getting into the if statement when we hit a branch but simultaneously a dcache miss. To not get stuck like doing 8 dcache latencymisses + 2 for branch instead of including the 2 in the 8.
+    //     lastBranchCycleCount = info.instructionID;
+    // }
 
     // NOTE: For BEG and BNE we need to check rs and rt.
+    // if (
+    //     (ID_OPCODE == OP_BEQ || ID_OPCODE == OP_BNE) &&
+    //     (ID_RS == EX_RT || ID_RT == EX_RT) &&
+    //     lastBranchCycleCount != info.instructionID)
+    // {
+    //     if (isLoad(EX_OPCODE))
+    //     {
+    //         branch_delay = 2;
+    //     }
+    //     else
+    //     {
+    //         branch_delay = 1;
+    //     }
+    //     // see above
+    //     lastBranchCycleCount = info.instructionID;
+    // }
+
+    
     if (
-        (ID_OPCODE == OP_BEQ || ID_OPCODE == OP_BNE) &&
+        isBranch(ID_OPCODE) && 
         (ID_RS == EX_RT || ID_RT == EX_RT) &&
-        lastBranchCycleCount != info.instructionID)
+        pipeline.exInstr != 0 &&
+        lastBranchCycleCount != info.instructionID
+    )
     {
-        if (isLoad(EX_OPCODE))
+        if (
+            (ID_OPCODE == OP_BLEZ || ID_OPCODE == OP_BGTZ) &&
+            ID_RS == EX_RT)
         {
-            branch_delay = 2;
+            if (isLoad(EX_OPCODE))
+            {
+                nrLoadUseStalls += 1;
+                branch_delay = 2;
+            }
+            else
+            {
+                branch_delay = 1;
+            }
+            // NOTE: I think this is necessary to make sure we don't keep getting into the if statement when we hit a branch but simultaneously a dcache miss. To not get stuck like doing 8 dcache latencymisses + 2 for branch instead of including the 2 in the 8.
+            lastBranchCycleCount = info.instructionID;
         }
-        else
+        
+        // NOTE: For BEG and BNE we need to check rs and rt.
+        if (
+            (ID_OPCODE == OP_BEQ || ID_OPCODE == OP_BNE) &&
+            (ID_RS == EX_RT || ID_RT == EX_RT))
         {
-            branch_delay = 1;
+            if (isLoad(EX_OPCODE))
+            {
+                nrLoadUseStalls += 1;
+                branch_delay = 2;
+            }
+            else
+            {
+                branch_delay = 1;
+            }
+            // see above
+            lastBranchCycleCount = info.instructionID;
         }
-        // see above
-        lastBranchCycleCount = info.instructionID;
+
+        state = BRANCH_STALL;
     }
 
     // Load Use Stall:
-    if (isLoad(EX_OPCODE) && (EX_RT == ID_RS || EX_RT == ID_RT))
+    else if (isLoad(EX_OPCODE) && (EX_RT == ID_RS || EX_RT == ID_RT))
     {
         nrLoadUseStalls += 1;
         state = LOAD_USE_STALL;
@@ -287,6 +339,9 @@ uint32_t Control(PipeState &pipeline)
     else if (dcache_delay > 0 && !HALTING)
     {
         state = D_CACHE_MISS;
+        if (branch_delay > 0) {
+            branch_delay += 1;
+        }
     }
     else
     {
@@ -391,6 +446,7 @@ Status runCycles(uint32_t cycles)
         else if (state == BRANCH_STALL)
         {
             BRANCH_stall(pipeState, pipeStateAddr);
+            execute_DCACHE_write_Check(pipeState, pipeStateAddr);
         }
         else if (state == HALT_INSTRUCT_IN_PIPELINE)
         {
