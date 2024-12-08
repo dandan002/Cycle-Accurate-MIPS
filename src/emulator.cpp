@@ -8,6 +8,8 @@
 
 #include <cassert>
 #include <iostream>
+#include <climits>
+
 using namespace std;
 
 bool checkOverflow(uint32_t val1, uint32_t val2)
@@ -25,6 +27,26 @@ bool checkOverflowSigned(uint32_t val1, int32_t val2)
 {
     int64_t result = int64_t(val1) + int64_t(val2);
     if (result > UINT32_MAX || result < INT32_MIN)
+    {
+        return true;
+    }
+    return false;
+}
+
+bool checkUnderflow(uint32_t val1, uint32_t val2)
+{
+    int64_t result = int64_t(val1) - int64_t(val2);
+    if (result < 0)
+    {
+        return true;
+    }
+    return false;
+}
+
+bool checkUnderflowSigned(int32_t val1, int32_t val2)
+{
+    int64_t result = int64_t(val1) - int64_t(val2);
+    if (result < INT32_MIN || result > INT32_MAX || result > val1)
     {
         return true;
     }
@@ -197,10 +219,30 @@ Emulator::InstructionInfo Emulator::executeInstruction()
             regData.registers[rd] = regData.registers[rt] >> shamt;
             break;
         case FUN_SUB:
-            regData.registers[rd] = regData.registers[rs] - regData.registers[rt];
+            a = regData.registers[rs];
+            b = regData.registers[rt];
+
+            if (checkUnderflowSigned(a, b))
+            {
+                info.isOverflow = true;
+            }
+            else
+            {
+                regData.registers[rd] = a - b;
+            }
             break;
         case FUN_SUBU:
-            regData.registers[rd] = regData.registers[rs] - regData.registers[rt];
+            a = regData.registers[rs];
+            b = regData.registers[rt];
+
+            if (checkUnderflow(a, b))
+            {
+                info.isOverflow = true;
+            }
+            else
+            {
+                regData.registers[rd] = a - b;
+            }
             break;
         default:
             std::cerr << LOG_ERROR << "Illegal operation..." << std::endl;
