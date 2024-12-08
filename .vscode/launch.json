@@ -7,7 +7,7 @@
             "request": "launch",
             "program": "${workspaceFolder}/sim_cycle",
             "args": [
-                "${workspaceFolder}/test/test2_arithmetic_overflow_exception.asm.bin",
+                "${workspaceFolder}/test/test2_arithmetic_overflow_exception.bin",
                 "${workspaceFolder}/test/cache_config.txt"
             ],
             "stopAtEntry": false,

@@ -292,12 +292,12 @@ Status runCycles(uint32_t cycles)
             moveAllForward(pipeState, pipeStateAddr);
 
             if (squashID) {
-                pipeState.idInstr = 0;
-                pipeStateAddr.idInstr_addr = 0;
-                squashID = false;
-            } else if (squashEX) {
                 pipeState.exInstr = 0;
                 pipeStateAddr.exInstr_addr = 0;
+                squashID = false;
+            } else if (squashEX) {
+                pipeState.memInstr = 0;
+                pipeStateAddr.memInstr_addr = 0;
                 squashEX = false;
             }
 
@@ -348,6 +348,7 @@ Status runCycles(uint32_t cycles)
             if (nopArithmeticExcept == 0) {
                 squashEX = true;
             }
+            info.isOverflow = false;
         }
         else if (state == ILLEGAL_INSTRUCION) 
         {
@@ -356,6 +357,7 @@ Status runCycles(uint32_t cycles)
             if (nopIllegalInstruct == 0) {
                 squashID = true;
             }
+            info.isValid = true;
         }
 
         count += 1;
