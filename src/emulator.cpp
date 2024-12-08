@@ -14,7 +14,7 @@ using namespace std;
 
 bool checkOverflowUnsigned(uint32_t val1, uint32_t val2)
 {
-    uint64_t result = val1 + val2;
+    uint64_t result = uint64_t(val1) + uint64_t(val2);
     // use UINT32_MAX here as the max value is uint32. I think we can prob get rid of the <0 but not sure. will leave for now cause it feels better LOL
     // uint32_t t = INT_MIN;
     // int32_t t1 = INT_MAX;

@@ -136,6 +136,40 @@
                 "traceResponse": true,
                 "engineLogging": true
             }
+        },
+        {
+            "name": "Debug arithmetic_overflow_exception",
+            "type": "cppdbg",
+            "request": "launch",
+            "program": "${workspaceFolder}/sim_cycle",
+            "args": [
+                "${workspaceFolder}/test/exception_arithmetic_overflow.bin",
+                "${workspaceFolder}/test/cache_config.txt"
+            ],
+            "stopAtEntry": false,
+            "cwd": "${workspaceFolder}", // Changed to workspace root
+            "environment": [],
+            "externalConsole": false,
+            "MIMode": "gdb",
+            "setupCommands": [
+                {
+                    "description": "Enable pretty-printing for gdb",
+                    "text": "-enable-pretty-printing",
+                    "ignoreFailures": true
+                },
+                {
+                    "description": "Set Disassembly Flavor to Intel",
+                    "text": "-gdb-set disassembly-flavor intel",
+                    "ignoreFailures": true
+                }
+            ],
+            "preLaunchTask": "build sim_cycle", // Updated to match tasks.json
+            "internalConsoleOptions": "openOnSessionStart",
+            "logging": {
+                "trace": true,
+                "traceResponse": true,
+                "engineLogging": true
+            }
         }
     ]
 }

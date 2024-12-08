@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # Default values
-default_bin_name="matrix"
+default_bin_name="fib"
 default_cache_config="cache_config"
 
 # Initialize variables
