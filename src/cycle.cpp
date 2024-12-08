@@ -34,6 +34,10 @@ static PipeState pipeState;
 static PipeStateAddr pipeStateAddr;
 static bool HALTING; // is the halting instruction flowing thorugh the pipeline?
 static uint32_t currentCycle;
+static uint32_t nopArithmeticExcept;
+static uint32_t nopIllegalInstruct;
+static bool squashID;
+static bool squashEX;
 
 // enum for specific instructions (i.e. halting)
 enum Instructions
@@ -50,6 +54,8 @@ enum ControlSignal
     D_CACHE_MISS = 3,
     LOAD_USE_STALL = 4,
     BRANCH_STALL = 5,
+    ARITHMETIC_OVERFLOW = 6,
+    ILLEGAL_INSTRUCION = 7
 };
 
 // extract specific bits [start, end] from a 32 bit instruction
@@ -122,6 +128,21 @@ void BRANCH_stall(PipeState &pipeline, PipeStateAddr &pipelineAddr)
     pipelineAddr.exInstr_addr = 0;
 }
 
+void insertNopException(PipeState &pipeline, PipeStateAddr &pipelineAddr)
+{
+    pipeline.wbInstr = pipeline.memInstr;
+    pipeline.memInstr = pipeline.exInstr;
+    pipeline.exInstr = pipeline.idInstr;
+    pipeline.idInstr = pipeline.ifInstr;
+    pipeline.ifInstr = 0;
+
+    pipelineAddr.wbInstr_addr = pipelineAddr.memInstr_addr;
+    pipelineAddr.memInstr_addr = pipelineAddr.exInstr_addr;
+    pipelineAddr.exInstr_addr = pipelineAddr.idInstr_addr;
+    pipelineAddr.idInstr_addr = pipelineAddr.ifInstr_addr;
+    pipelineAddr.ifInstr_addr = 0;
+}
+
 // NOTE: The list of places in the source code that are marked ToDo might not be comprehensive.
 // Please keep this in mind as you work on the project.
 
@@ -148,6 +169,10 @@ Status initSimulator(CacheConfig &iCacheConfig, CacheConfig &dCacheConfig, Memor
     currentCycle = 0;
     HALTING = false;
     lastBranchCycleCount = 0;
+    nopArithmeticExcept = 0;
+    nopIllegalInstruct = 0;
+    squashID = false;
+    squashEX = false;
     return SUCCESS;
 }
 
@@ -183,7 +208,22 @@ uint32_t Control(PipeState &pipeline)
 
     // assign state to variable to decide which way to go in main loop
     // CHECK: what if it's a load brach stall but I_CACHE is >0? What should be done in that case? - Answer: I think these two should be independent
-    if (info.isHalt)
+    if (info.isOverflow || nopArithmeticExcept > 0) 
+    {
+        state = ARITHMETIC_OVERFLOW;
+        if (nopArithmeticExcept == 0) 
+        {
+            nopArithmeticExcept = 2;
+        }
+    } else if (!info.isValid || nopIllegalInstruct > 0) 
+    {
+        state = ILLEGAL_INSTRUCION;
+        if (nopIllegalInstruct == 0) 
+        {
+            nopIllegalInstruct = 1;
+        }
+    } 
+    else if (info.isHalt)
     {
         state = HALT_INSTRUCT_IN_PIPELINE;
     }
@@ -251,6 +291,16 @@ Status runCycles(uint32_t cycles)
             // here move all instructions one forward
             moveAllForward(pipeState, pipeStateAddr);
 
+            if (squashID) {
+                pipeState.idInstr = 0;
+                pipeStateAddr.idInstr_addr = 0;
+                squashID = false;
+            } else if (squashEX) {
+                pipeState.exInstr = 0;
+                pipeStateAddr.exInstr_addr = 0;
+                squashEX = false;
+            }
+
             info = emulator->executeInstruction();
             pipeState.ifInstr = info.instruction;
 
@@ -290,6 +340,22 @@ Status runCycles(uint32_t cycles)
         else if (state == HALT_INSTRUCT_IN_PIPELINE)
         {
             moveAllForward(pipeState, pipeStateAddr);
+        } 
+        else if (state == ARITHMETIC_OVERFLOW) 
+        {
+            insertNopException(pipeState, pipeStateAddr);
+            nopArithmeticExcept -= 1;
+            if (nopArithmeticExcept == 0) {
+                squashEX = true;
+            }
+        }
+        else if (state == ILLEGAL_INSTRUCION) 
+        {
+            insertNopException(pipeState, pipeStateAddr);
+            nopIllegalInstruct -= 1;
+            if (nopIllegalInstruct == 0) {
+                squashID = true;
+            }
         }
 
         count += 1;
