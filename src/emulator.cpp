@@ -40,8 +40,7 @@ bool checkOverflowSigned(int32_t val1, int32_t val2)
 
 bool checkUnderflowUnsigned(uint32_t val1, uint32_t val2)
 {
-    int64_t result = int64_t(val1) - int64_t(val2);
-    if (result < 0)
+    if (val2 > val1)
     {
         return true;
     }
@@ -51,7 +50,7 @@ bool checkUnderflowUnsigned(uint32_t val1, uint32_t val2)
 bool checkUnderflowSigned(int32_t val1, int32_t val2)
 {
     int64_t result = int64_t(val1) - int64_t(val2);
-    if (result < INT32_MIN || result > INT32_MAX || result > val1)
+    if (result < INT32_MIN || result > INT32_MAX)
     {
         return true;
     }
