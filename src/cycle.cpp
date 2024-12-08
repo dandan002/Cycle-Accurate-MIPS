@@ -38,6 +38,7 @@ static uint32_t nopArithmeticExcept;
 static uint32_t nopIllegalInstruct;
 static bool squashID;
 static bool squashEX;
+static bool nrLoadUseStalls;
 
 // enum for specific instructions (i.e. halting)
 enum Instructions
@@ -243,6 +244,7 @@ uint32_t Control(PipeState &pipeline)
     // Load Use Stall:
     if (isLoad(EX_OPCODE) && (EX_RT == ID_RS || EX_RT == ID_RT))
     {
+        nrLoadUseStalls += 1;
         state = LOAD_USE_STALL;
     }
     // assign state to variable to decide which way to go in main loop
@@ -457,8 +459,9 @@ Status runTillHalt()
 Status finalizeSimulator()
 {
     emulator->dumpRegMem(output);
-    SimulationStats stats{emulator->getDin(), currentCycle, iCache->getHits(), iCache->getMisses(), dCache->getHits(), dCache->getMisses()}; // TODO: Incomplete Implementation
-    // TODO: Load use Stalls
+    SimulationStats stats{emulator->getDin(), currentCycle, iCache->getHits(), iCache->getMisses(), dCache->getHits(), dCache->getMisses(), nrLoadUseStalls};
+    // TODO: Incomplete Implementation
+    // [x]: Load use Stalls
     dumpSimStats(stats, output);
     return SUCCESS;
 }

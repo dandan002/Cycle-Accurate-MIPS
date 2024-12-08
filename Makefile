@@ -49,6 +49,7 @@ $(ASSEMBLY_TARGETS) : test/%.bin : test/%.asm
 clean:
 	rm -f sim_funct sim_cycle
 	rm -f test/*.bin test/*.elf
+	rm -f test/*.out
 
 # Phony targets
 .PHONY: all debug tests clean
