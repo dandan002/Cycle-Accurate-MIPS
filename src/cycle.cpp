@@ -187,12 +187,17 @@ uint32_t Control(PipeState &pipeline)
     uint32_t EX_OPCODE = extractBitsAddr(pipeline.exInstr, 31, 26);
 
     uint32_t ID_RS = extractBitsAddr(pipeline.idInstr, 25, 21);
-    uint32_t EX_RS = extractBitsAddr(pipeline.exInstr, 25, 21);
+    uint32_t ID_RT = extractBitsAddr(pipeline.idInstr, 20, 16);
+    // uint32_t EX_RS = extractBitsAddr(pipeline.exInstr, 25, 21);
+    uint32_t EX_RT = extractBitsAddr(pipeline.exInstr, 20, 16);
 
-    // check if nop after branch is needed (if Ex state write to same place as )
-    // CHECK: Do we need to include BNE, BEQ here as well?
+    // check if nop after branch is needed (if Ex state write to same place as)
+    // [x]: Do we need to include BNE, BEQ here as well? - Yes
     // CHECK: Other dependencies here? Can we just assume if not load -> arithmetic?
-    if ((ID_OPCODE == OP_BLEZ || ID_OPCODE == OP_BGTZ) && ID_RS == EX_RS && lastBranchCycleCount != info.instructionID)
+    if (
+        (ID_OPCODE == OP_BLEZ || ID_OPCODE == OP_BGTZ) &&
+        ID_RS == EX_RT &&
+        lastBranchCycleCount != info.instructionID)
     {
         if (isLoad(EX_OPCODE))
         {
@@ -203,6 +208,24 @@ uint32_t Control(PipeState &pipeline)
             branch_delay = 1;
         }
         // NOTE: I think this is necessary to make sure we don't keep getting into the if statement when we hit a branch but simultaneously a dcache miss. To not get stuck like doing 8 dcache latencymisses + 2 for branch instead of including the 2 in the 8.
+        lastBranchCycleCount = info.instructionID;
+    }
+
+    // NOTE: For BEG and BNE we need to check rs and rt.
+    if (
+        (ID_OPCODE == OP_BEQ || ID_OPCODE == OP_BNE) &&
+        (ID_RS == EX_RT || ID_RT == EX_RT) &&
+        lastBranchCycleCount != info.instructionID)
+    {
+        if (isLoad(EX_OPCODE))
+        {
+            branch_delay = 2;
+        }
+        else
+        {
+            branch_delay = 1;
+        }
+        // see above
         lastBranchCycleCount = info.instructionID;
     }
 
