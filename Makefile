@@ -26,7 +26,7 @@ COMMON_HDRS = $(wildcard src/*.h)
 ASSEMBLY_TESTS = $(wildcard test/*.asm)
 ASSEMBLY_TARGETS = $(ASSEMBLY_TESTS:.asm=.bin)
 
-ASSEMBLER = bin/mips-linux-gnu-as
+ASSEMBLER = bin/mips-linux-gnu-as 
 OBJCOPY = bin/mips-linux-gnu-objcopy
 
 # Main targets
@@ -42,7 +42,7 @@ sim_cycle: $(SIM_CYCLE_SRCS) $(COMMON_HDRS)
 tests: $(ASSEMBLY_TARGETS)
 
 $(ASSEMBLY_TARGETS) : test/%.bin : test/%.asm
-	$(ASSEMBLER) test/$*.asm -o test/$*.elf
+	$(ASSEMBLER) -march=r4000 test/$*.asm -o test/$*.elf
 	$(OBJCOPY) test/$*.elf -j .text -O binary test/$*.bin
 
 # Clean function

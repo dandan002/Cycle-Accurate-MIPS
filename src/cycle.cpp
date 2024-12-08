@@ -128,6 +128,17 @@ void BRANCH_stall(PipeState &pipeline, PipeStateAddr &pipelineAddr)
     pipelineAddr.exInstr_addr = 0;
 }
 
+void load_use_stall_stage(PipeState &pipeline, PipeStateAddr &pipelineAddr)
+{
+    pipeline.wbInstr = pipeline.memInstr;
+    pipeline.memInstr = pipeline.exInstr;
+    pipeline.exInstr = 0;
+
+    pipelineAddr.wbInstr_addr = pipelineAddr.memInstr_addr;
+    pipelineAddr.memInstr_addr = pipelineAddr.exInstr_addr;
+    pipelineAddr.exInstr_addr = 0;
+}
+
 void insertNopException(PipeState &pipeline, PipeStateAddr &pipelineAddr)
 {
     pipeline.wbInstr = pipeline.memInstr;
@@ -229,9 +240,14 @@ uint32_t Control(PipeState &pipeline)
         lastBranchCycleCount = info.instructionID;
     }
 
+    // Load Use Stall:
+    if (isLoad(EX_OPCODE) && (EX_RT == ID_RS || EX_RT == ID_RT))
+    {
+        state = LOAD_USE_STALL;
+    }
     // assign state to variable to decide which way to go in main loop
     // CHECK: what if it's a load brach stall but I_CACHE is >0? What should be done in that case? - Answer: I think these two should be independent
-    if (info.isOverflow || nopArithmeticExcept > 0)
+    else if (info.isOverflow || nopArithmeticExcept > 0)
     {
         state = ARITHMETIC_OVERFLOW;
         if (nopArithmeticExcept == 0)
@@ -247,17 +263,20 @@ uint32_t Control(PipeState &pipeline)
             nopIllegalInstruct = 1;
         }
     }
-    else if (info.isHalt)
-    {
-        state = HALT_INSTRUCT_IN_PIPELINE;
-    }
     else if (dcache_delay == 0 && branch_delay > 0 && !HALTING)
     {
         state = BRANCH_STALL;
     }
     else if ((dcache_delay == 0 && icache_delay == 0 && branch_delay == 0 && !HALTING) || squashID)
     {
-        state = FETCH_NEW;
+        if (info.isHalt)
+        {
+            state = HALT_INSTRUCT_IN_PIPELINE;
+        }
+        else
+        {
+            state = FETCH_NEW;
+        }
     }
     else if (dcache_delay == 0 && icache_delay > 0 && !HALTING)
     {
@@ -360,6 +379,13 @@ Status runCycles(uint32_t cycles)
         {
             stall_IF_ID_EX_MEM_stage(pipeState, pipeStateAddr);
         }
+        else if (state == LOAD_USE_STALL)
+        {
+            load_use_stall_stage(pipeState, pipeStateAddr);
+
+            // checks if current MEM stage misses or hits
+            execute_DCACHE_write_Check(pipeState, pipeStateAddr);
+        }
         else if (state == BRANCH_STALL)
         {
             BRANCH_stall(pipeState, pipeStateAddr);
@@ -367,6 +393,9 @@ Status runCycles(uint32_t cycles)
         else if (state == HALT_INSTRUCT_IN_PIPELINE)
         {
             moveAllForward(pipeState, pipeStateAddr);
+
+            // checks if current MEM stage misses or hits
+            execute_DCACHE_write_Check(pipeState, pipeStateAddr);
         }
         else if (state == ARITHMETIC_OVERFLOW)
         {
@@ -377,6 +406,9 @@ Status runCycles(uint32_t cycles)
                 squashEX = true;
             }
             info.isOverflow = false;
+
+            // checks if current MEM stage misses or hits
+            execute_DCACHE_write_Check(pipeState, pipeStateAddr);
         }
         else if (state == ILLEGAL_INSTRUCION)
         {
@@ -387,6 +419,8 @@ Status runCycles(uint32_t cycles)
                 squashID = true;
             }
             info.isValid = true;
+            // checks if current MEM stage misses or hits
+            execute_DCACHE_write_Check(pipeState, pipeStateAddr);
         }
 
         count += 1;

@@ -2,12 +2,12 @@
     "version": "0.2.0",
     "configurations": [
         {
-            "name": "Debug sim_cycle",
+            "name": "Debug test1",
             "type": "cppdbg",
             "request": "launch",
             "program": "${workspaceFolder}/sim_cycle",
             "args": [
-                "${workspaceFolder}/test/test4_one_cycle_airthmetic_branch_stall.bin",
+                "${workspaceFolder}/test/test1_once_cycle_load_use_stall.bin",
                 "${workspaceFolder}/test/cache_config.txt"
             ],
             "stopAtEntry": false,
