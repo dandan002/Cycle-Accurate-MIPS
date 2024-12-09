@@ -38,7 +38,7 @@ static uint32_t nopArithmeticExcept;
 static uint32_t nopIllegalInstruct;
 static bool squashID;
 static bool squashEX;
-static uint32_t nrLoadUseStalls;
+static uint32_t nrLoadUseStalls = 0;
 
 // enum for specific instructions (i.e. halting)
 enum Instructions
