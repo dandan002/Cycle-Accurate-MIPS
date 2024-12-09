@@ -14,7 +14,7 @@ loop: lw   $t3, 0($t0)      # Get value from array F[n]
     addiu $t1, $t1, -1    # decrement loop counter
     bgtz  $t1, loop       # repeat if not finished yet.
     .word 0xfeedfeed
-Arr:  .word 0x0             # size of "array"
+Arr: .word 0x0             # size of "array"
     .word 0x0             # size of "array"
     .word 0x0             # size of "array"
     .word 0x0             # size of "array"
