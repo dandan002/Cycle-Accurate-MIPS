@@ -295,7 +295,7 @@ uint32_t Control(PipeState &pipeline)
         isLoad(MEM_OPCODE) && 
         isBranch(ID_OPCODE) &&
         (MEM_RT == ID_RS || MEM_RT == ID_RT) &&
-        (lastBranchCycleCount != info.instructionID || lastBranchCycleCount != pipeline.idInstr)
+        (lastBranchCycleCount != info.instructionID || lastBranchInstruction != pipeline.idInstr)
     ) {
         nrLoadUseStalls += 1;
         branch_delay = 1;
