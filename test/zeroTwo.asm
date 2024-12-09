@@ -1,3 +1,6 @@
+# Simple test to check if $zero is working correctly;
+# should not cause any stalls, and should not be able to be written to.
+
 main:
     li $t6, 0x000000b4  # 0x000000b4
     li $t0, 10          # $t0 = 10
