@@ -8,6 +8,4 @@ main:
     add $t1, $t0, $zero     # $t1 = $t0 + 0 (should be 10)
     sw $t1, 4($t6)          # 0x000000b4 = $t1 (should be 10)
     sw $zero, 8($t6)        # 0x000000b4 = $zero (should be 0)
-    .word 0xfeedfeed        # End marker
-
-    
+    .word 0xfeedfeed        # End marker    
