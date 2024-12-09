@@ -38,7 +38,7 @@ static uint32_t nopArithmeticExcept;
 static uint32_t nopIllegalInstruct;
 static bool squashID;
 static bool squashEX;
-static bool nrLoadUseStalls;
+static uint32_t nrLoadUseStalls;
 
 // enum for specific instructions (i.e. halting)
 enum Instructions
@@ -272,6 +272,7 @@ uint32_t Control(PipeState &pipeline)
         EX_RT != 0
         )
     {
+        // BUG: clear this when the branch instruction is not the same
         nrLoadUseStalls += 1;
         state = LOAD_USE_STALL;
         
