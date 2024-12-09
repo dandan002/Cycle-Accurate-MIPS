@@ -11,7 +11,7 @@
 
 ### Approximately how many hours did it take you to complete this assignment?
 
-- Number of hours: 25
+- Number of hours: 45
 
 ### How many additional test cases did you write to test your implementation?
 
