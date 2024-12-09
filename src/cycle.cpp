@@ -161,6 +161,7 @@ void insertNopException(PipeState &pipeline, PipeStateAddr &pipelineAddr)
     pipelineAddr.ifInstr_addr = 0;
 }
 
+
 // NOTE: The list of places in the source code that are marked ToDo might not be comprehensive.
 // Please keep this in mind as you work on the project.
 
@@ -426,26 +427,35 @@ Status runCycles(uint32_t cycles)
         }
         else if (state == ARITHMETIC_OVERFLOW)
         {
-            insertNopException(pipeState, pipeStateAddr);
-            nopArithmeticExcept -= 1;
-            if (nopArithmeticExcept == 0)
-            {
-                squashEX = true;
+            if (icache_delay > 0) {
+                stall_IF_stage(pipeState, pipeStateAddr);
+            } else {
+                insertNopException(pipeState, pipeStateAddr);
+                nopArithmeticExcept -= 1;
+                if (nopArithmeticExcept == 0)
+                {
+                    squashEX = true;
+                }
+                info.isOverflow = false;
             }
-            info.isOverflow = false;
+            
 
             // checks if current MEM stage misses or hits
             execute_DCACHE_write_Check(pipeState, pipeStateAddr);
         }
         else if (state == ILLEGAL_INSTRUCION)
         {
-            insertNopException(pipeState, pipeStateAddr);
-            nopIllegalInstruct -= 1;
-            if (nopIllegalInstruct == 0)
-            {
-                squashID = true;
+            if (icache_delay > 0) {
+                stall_IF_stage(pipeState, pipeStateAddr);
+            } else {
+                insertNopException(pipeState, pipeStateAddr);
+                nopIllegalInstruct -= 1;
+                if (nopIllegalInstruct == 0)
+                {
+                    squashID = true;
+                }
+                info.isValid = true;
             }
-            info.isValid = true;
             // checks if current MEM stage misses or hits
             execute_DCACHE_write_Check(pipeState, pipeStateAddr);
         }

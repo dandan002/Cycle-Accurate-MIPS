@@ -21,8 +21,9 @@ main:
     addi $zero, $zero, 10      # $t1 = $t0 + 10
     beq  $zero, $t0, skip   
 
-    li $t1, 0x9FFFFFFF     
-    add  $t1, $t1, $t1        
+    li $t1, 0x9FFFFFFF   
+    mul $t5, $t5, $t0   
+    # add  $t1, $t1, $t1        
     .word 0xfeedfeed
 
     .align 12                
