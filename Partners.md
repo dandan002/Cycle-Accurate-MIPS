@@ -15,14 +15,13 @@
 
 ### How many additional test cases did you write to test your implementation?
 
-- Number of test cases: [n tests]
+- Number of test cases: 20 (but some came from Ed)
 
 ## Challenges Encountered
 
 ### Did you encounter any serious problems? If yes, please describe (e.g spec was unclear).
 
-- [Yes/No]
-- [If yes, please describe the problems encountered]
+- No
 
 ## Additional Comments
 
