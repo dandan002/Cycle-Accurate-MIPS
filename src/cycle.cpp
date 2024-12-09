@@ -209,48 +209,11 @@ uint32_t Control(PipeState &pipeline)
     // uint32_t EX_RS = extractBitsAddr(pipeline.exInstr, 25, 21);
     uint32_t EX_RT = extractBitsAddr(pipeline.exInstr, 20, 16);
 
-    // check if nop after branch is needed (if Ex state write to same place as)
-    // [x]: Do we need to include BNE, BEQ here as well? - Yes
-    // CHECK: Other dependencies here? Can we just assume if not load -> arithmetic?
-    // if (
-    //     (ID_OPCODE == OP_BLEZ || ID_OPCODE == OP_BGTZ) &&
-    //     ID_RS == EX_RT &&
-    //     lastBranchCycleCount != info.instructionID)
-    // {
-    //     if (isLoad(EX_OPCODE))
-    //     {
-    //         branch_delay = 2;
-    //     }
-    //     else
-    //     {
-    //         branch_delay = 1;
-    //     }
-    //     // NOTE: I think this is necessary to make sure we don't keep getting into the if statement when we hit a branch but simultaneously a dcache miss. To not get stuck like doing 8 dcache latencymisses + 2 for branch instead of including the 2 in the 8.
-    //     lastBranchCycleCount = info.instructionID;
-    // }
-
-    // NOTE: For BEG and BNE we need to check rs and rt.
-    // if (
-    //     (ID_OPCODE == OP_BEQ || ID_OPCODE == OP_BNE) &&
-    //     (ID_RS == EX_RT || ID_RT == EX_RT) &&
-    //     lastBranchCycleCount != info.instructionID)
-    // {
-    //     if (isLoad(EX_OPCODE))
-    //     {
-    //         branch_delay = 2;
-    //     }
-    //     else
-    //     {
-    //         branch_delay = 1;
-    //     }
-    //     // see above
-    //     lastBranchCycleCount = info.instructionID;
-    // }
-
     
     if (
         isBranch(ID_OPCODE) && 
         (ID_RS == EX_RT || ID_RT == EX_RT) &&
+        EX_RT != 0 &&
         pipeline.exInstr != 0 &&
         lastBranchCycleCount != info.instructionID
     )
@@ -294,7 +257,11 @@ uint32_t Control(PipeState &pipeline)
     }
 
     // Load Use Stall:
-    else if (isLoad(EX_OPCODE) && (EX_RT == ID_RS || EX_RT == ID_RT))
+    else if (
+        isLoad(EX_OPCODE) && 
+        (EX_RT == ID_RS || EX_RT == ID_RT) &&
+        EX_RT != 0
+        )
     {
         nrLoadUseStalls += 1;
         state = LOAD_USE_STALL;
@@ -363,13 +330,15 @@ void execute_DCACHE_write_Check(PipeState &pipeline, PipeStateAddr &pipelineAddr
     uint32_t MEM_OPCODE = extractBitsAddr(pipeline.memInstr, 31, 26);
     uint32_t MEM_ADDRESS = pipelineAddr.memInstr_addr;
 
+    // uint32_t MEM_RT = extractBitsAddr(pipeline.exInstr, 20, 16);
+
     // instruction in stage MEM is the one writing if sw
     if (info.isValid && isStore(MEM_OPCODE))
     {
         dcache_delay += dCache->access(MEM_ADDRESS, CACHE_WRITE) ? 0 : dCache->config.missLatency;
     }
 
-    if (info.isValid && isLoad(MEM_OPCODE))
+    if (info.isValid && isLoad(MEM_OPCODE)) // && MEM_RT != 0)
     {
         dcache_delay += dCache->access(MEM_ADDRESS, CACHE_READ) ? 0 : dCache->config.missLatency;
     }
