@@ -11,7 +11,7 @@
 
 ### Approximately how many hours did it take you to complete this assignment?
 
-- Number of hours: [n hours]
+- Number of hours: 25
 
 ### How many additional test cases did you write to test your implementation?
 
@@ -52,7 +52,7 @@
 >
 >> This programming assignment represents my own work in accordance with University regulations and the course syllabus.  /s/ Ada Lovelace
 
-- [Acknowledgement of student 1]
-- [Acknowledgement of student 2]
-- [Acknowledgement of student 3]
+- This programming assignment represents my own work in accordance with University regulations and the course syllabus.  /s/ 
+- This programming assignment represents my own work in accordance with University regulations and the course syllabus.  /s/ 
+- This programming assignment represents my own work in accordance with University regulations and the course syllabus.  /s/ 
 - This programming assignment represents my own work in accordance with University regulations and the course syllabus.  /s/ Kayla Waitman
