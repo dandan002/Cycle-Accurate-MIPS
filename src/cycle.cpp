@@ -415,8 +415,13 @@ Status runCycles(uint32_t cycles)
         }
         else if (state == BRANCH_STALL)
         {
-            BRANCH_stall(pipeState, pipeStateAddr);
-            execute_DCACHE_write_Check(pipeState, pipeStateAddr);
+            if (dcache_delay == 0) {
+                BRANCH_stall(pipeState, pipeStateAddr);
+                execute_DCACHE_write_Check(pipeState, pipeStateAddr);
+            } else {
+                stall_IF_ID_EX_MEM_stage(pipeState, pipeStateAddr);
+                branch_delay += 1;
+            }
         }
         else if (state == HALT_INSTRUCT_IN_PIPELINE)
         {
