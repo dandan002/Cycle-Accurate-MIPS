@@ -38,7 +38,7 @@ static uint32_t nopArithmeticExcept;
 static uint32_t nopIllegalInstruct;
 static bool squashID;
 static bool squashEX;
-static uint32_t nrLoadUseStalls = 0;
+static uint32_t nrLoadUseStalls;
 
 // enum for specific instructions (i.e. halting)
 enum Instructions
@@ -192,6 +192,7 @@ Status initSimulator(CacheConfig &iCacheConfig, CacheConfig &dCacheConfig, Memor
     nopIllegalInstruct = 0;
     squashID = false;
     squashEX = false;
+    nrLoadUseStalls = 0;
     return SUCCESS;
 }
 
@@ -254,7 +255,8 @@ uint32_t Control(PipeState &pipeline)
             }
             
             if (isLoad(MEM_OPCODE) && 
-            (ID_RS == MEM_RT || ID_RT == MEM_RT)) 
+            (ID_RS == MEM_RT || ID_RT == MEM_RT) &&
+            lastBranchCycleCount != info.instructionID) 
             {
                 nrLoadUseStalls += 1;
             }
@@ -272,12 +274,15 @@ uint32_t Control(PipeState &pipeline)
         EX_RT != 0
         )
     {
-        // BUG: clear this when the branch instruction is not the same
-        nrLoadUseStalls += 1;
-        state = LOAD_USE_STALL;
+        // FIXME: clear this when the branch instruction is not the same
+        if (lastBranchCycleCount != info.instructionID) {
+            nrLoadUseStalls += 1;
+            state = LOAD_USE_STALL;
+        }
         
         if (isLoad(MEM_OPCODE) && 
-        (ID_RS == MEM_RT || ID_RT == MEM_RT)) 
+        (ID_RS == MEM_RT || ID_RT == MEM_RT) &&
+        lastBranchCycleCount != info.instructionID) 
         {
             nrLoadUseStalls += 1;
         }
