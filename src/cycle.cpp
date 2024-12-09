@@ -39,6 +39,7 @@ static uint32_t nopIllegalInstruct;
 static bool squashID;
 static bool squashEX;
 static uint32_t nrLoadUseStalls;
+static uint32_t lastBranchInstruction;
 
 // enum for specific instructions (i.e. halting)
 enum Instructions
@@ -193,6 +194,7 @@ Status initSimulator(CacheConfig &iCacheConfig, CacheConfig &dCacheConfig, Memor
     squashID = false;
     squashEX = false;
     nrLoadUseStalls = 0;
+    lastBranchInstruction = 0;
     return SUCCESS;
 }
 
@@ -237,6 +239,7 @@ uint32_t Control(PipeState &pipeline)
             // NOTE: I think this is necessary to make sure we don't keep getting into the if statement when we hit a branch but simultaneously a dcache miss. To not get stuck like doing 8 dcache latencymisses + 2 for branch instead of including the 2 in the 8.
 
             lastBranchCycleCount = info.instructionID;
+            lastBranchInstruction = pipeline.idInstr;
         }
         
         // NOTE: For BEG and BNE we need to check rs and rt.
@@ -262,6 +265,7 @@ uint32_t Control(PipeState &pipeline)
             }
             // see above
             lastBranchCycleCount = info.instructionID;
+            lastBranchInstruction = pipeline.idInstr;
         }
 
         state = BRANCH_STALL;
@@ -271,24 +275,34 @@ uint32_t Control(PipeState &pipeline)
     else if (
         isLoad(EX_OPCODE) && 
         (EX_RT == ID_RS || EX_RT == ID_RT) &&
-        EX_RT != 0
+        EX_RT != 0 &&
+        lastBranchCycleCount != info.instructionID
         )
     {
         // FIXME: clear this when the branch instruction is not the same
-        if (lastBranchCycleCount != info.instructionID) {
-            nrLoadUseStalls += 1;
-            state = LOAD_USE_STALL;
-        }
+        nrLoadUseStalls += 1;
+        state = LOAD_USE_STALL;
+        lastBranchInstruction = pipeline.idInstr;
         
         if (isLoad(MEM_OPCODE) && 
-        (ID_RS == MEM_RT || ID_RT == MEM_RT) &&
-        lastBranchCycleCount != info.instructionID) 
+        (ID_RS == MEM_RT || ID_RT == MEM_RT)) 
         {
             nrLoadUseStalls += 1;
         }
     }
-    // assign state to variable to decide which way to go in main loop
-    // CHECK: what if it's a load brach stall but I_CACHE is >0? What should be done in that case? - Answer: I think these two should be independent
+    
+    else if (
+        isLoad(MEM_OPCODE) && 
+        isBranch(ID_OPCODE) &&
+        (MEM_RT == ID_RS || MEM_RT == ID_RT) &&
+        (lastBranchCycleCount != info.instructionID || lastBranchCycleCount != pipeline.idInstr)
+    ) {
+        nrLoadUseStalls += 1;
+        branch_delay = 1;
+        lastBranchInstruction = pipeline.idInstr;
+        lastBranchCycleCount = info.instructionID;
+        state = BRANCH_STALL;
+    }
     else if (info.isOverflow || nopArithmeticExcept > 0)
     {
         state = ARITHMETIC_OVERFLOW;
