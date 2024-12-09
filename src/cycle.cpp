@@ -204,13 +204,14 @@ uint32_t Control(PipeState &pipeline)
     // check if current state of pipeline requires branch stall (i.e. branch reg is in ex stage)
     uint32_t ID_OPCODE = extractBitsAddr(pipeline.idInstr, 31, 26);
     uint32_t EX_OPCODE = extractBitsAddr(pipeline.exInstr, 31, 26);
+    uint32_t MEM_OPCODE = extractBitsAddr(pipeline.memInstr, 31, 26);
 
     uint32_t ID_RS = extractBitsAddr(pipeline.idInstr, 25, 21);
     uint32_t ID_RT = extractBitsAddr(pipeline.idInstr, 20, 16);
     // uint32_t EX_RS = extractBitsAddr(pipeline.exInstr, 25, 21);
     uint32_t EX_RT = extractBitsAddr(pipeline.exInstr, 20, 16);
+    uint32_t MEM_RT = extractBitsAddr(pipeline.memInstr, 20, 16);
 
-    
     if (
         isBranch(ID_OPCODE) && 
         (ID_RS == EX_RT || ID_RT == EX_RT) &&
@@ -233,6 +234,7 @@ uint32_t Control(PipeState &pipeline)
                 branch_delay = 1;
             }
             // NOTE: I think this is necessary to make sure we don't keep getting into the if statement when we hit a branch but simultaneously a dcache miss. To not get stuck like doing 8 dcache latencymisses + 2 for branch instead of including the 2 in the 8.
+
             lastBranchCycleCount = info.instructionID;
         }
         
@@ -250,6 +252,12 @@ uint32_t Control(PipeState &pipeline)
             {
                 branch_delay = 1;
             }
+            
+            if (isLoad(MEM_OPCODE) && 
+            (ID_RS == MEM_RT || ID_RT == MEM_RT)) 
+            {
+                nrLoadUseStalls += 1;
+            }
             // see above
             lastBranchCycleCount = info.instructionID;
         }
@@ -266,6 +274,12 @@ uint32_t Control(PipeState &pipeline)
     {
         nrLoadUseStalls += 1;
         state = LOAD_USE_STALL;
+        
+        if (isLoad(MEM_OPCODE) && 
+        (ID_RS == MEM_RT || ID_RT == MEM_RT)) 
+        {
+            nrLoadUseStalls += 1;
+        }
     }
     // assign state to variable to decide which way to go in main loop
     // CHECK: what if it's a load brach stall but I_CACHE is >0? What should be done in that case? - Answer: I think these two should be independent
