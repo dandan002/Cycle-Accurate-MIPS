@@ -42,7 +42,8 @@ sim_cycle: $(SIM_CYCLE_SRCS) $(COMMON_HDRS)
 tests: $(ASSEMBLY_TARGETS)
 
 $(ASSEMBLY_TARGETS) : test/%.bin : test/%.asm
-	$(ASSEMBLER) -march=r4000 test/$*.asm -o test/$*.elf
+#   $(ASSEMBLER) -march=r4000 test/$*.asm -o test/$*.elf
+	$(ASSEMBLER) test/$*.asm -o test/$*.elf
 	$(OBJCOPY) test/$*.elf -j .text -O binary test/$*.bin
 
 # Clean function
