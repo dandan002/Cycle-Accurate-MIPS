@@ -23,10 +23,10 @@
     add $t5, $t5, $t4   # $t5 = $t5 + $t4 = 75
     sw $t5, 12($t6)     # Store result in memory
 
-# EXCEPTION: Unsigned subtraction underflow
-    li $t0, 0           # $t0 = 0x00000000 (minimum unsigned 32-bit integer)
+# EXCEPTION: subtraction underflow
+    li $t0, -2147483648  # $t0 = 0x80000000 (minimum signed 32-bit integer)
     li $t1, 1           # $t1 = 1
-    subu $t2, $t0, $t1  # This should cause an unsigned arithmetic underflow
+    sub $t2, $t0, $t1  # This should cause an unsigned arithmetic underflow
     sw $t2, 16($t6)      # This instruction should not execute
     .word 0xfeedfeed    # This instruction should not execute
     
