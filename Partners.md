@@ -15,7 +15,7 @@
 
 ### How many additional test cases did you write to test your implementation?
 
-- Number of test cases: 20 (but some came from Ed)
+- Number of test cases: 40 (but some came from Ed)
 
 ## Challenges Encountered
 
@@ -27,8 +27,7 @@
 
 ### Write any other comments here.
 
-- [comment_1]
-- [comment_2]
+- None.
 
 ## Help Information
 
@@ -52,7 +51,7 @@
 >
 >> This programming assignment represents my own work in accordance with University regulations and the course syllabus.  /s/ Ada Lovelace
 
-- This programming assignment represents my own work in accordance with University regulations and the course syllabus.  /s/ 
-- This programming assignment represents my own work in accordance with University regulations and the course syllabus.  /s/ 
-- This programming assignment represents my own work in accordance with University regulations and the course syllabus.  /s/ 
+- This programming assignment represents my own work in accordance with University regulations and the course syllabus.  /s/ Kenzy Elshazly
+- This programming assignment represents my own work in accordance with University regulations and the course syllabus.  /s/ Daniel Jung
+- This programming assignment represents my own work in accordance with University regulations and the course syllabus.  /s/ Max Gonzalez Saez-Diez
 - This programming assignment represents my own work in accordance with University regulations and the course syllabus.  /s/ Kayla Waitman
