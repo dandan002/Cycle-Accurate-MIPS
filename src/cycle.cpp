@@ -506,7 +506,6 @@ Status runCycles(uint32_t cycles)
 
         if (pipeState.wbInstr == HALT_INSTRUCTION)
         {
-            // moveAllForward(pipeState, pipeStateAddr);
             status = HALT;
             break;
         }
@@ -517,6 +516,10 @@ Status runCycles(uint32_t cycles)
         // }
     }
 
+    // if (cycles != 0 && count < cycles) {
+    //     pipeState.cycle += 1;
+    //     moveAllForward(pipeState, pipeStateAddr);
+    // }
 
     dumpPipeState(pipeState, output);
     return status;
