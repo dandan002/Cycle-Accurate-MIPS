@@ -284,11 +284,11 @@ uint32_t Control(PipeState &pipeline)
         state = LOAD_USE_STALL;
         lastBranchInstruction = pipeline.idInstr;
         
-        if (isLoad(MEM_OPCODE) && 
-        (ID_RS == MEM_RT || ID_RT == MEM_RT)) 
-        {
-            nrLoadUseStalls += 1;
-        }
+        // if (isLoad(MEM_OPCODE) && 
+        // (ID_RS == MEM_RT || ID_RT == MEM_RT)) 
+        // {
+        //     nrLoadUseStalls += 1;
+        // }
     }
     
     else if (
@@ -387,7 +387,6 @@ Status runCycles(uint32_t cycles)
     uint32_t count = 0;
     auto status = SUCCESS;
 
-    // BUG: runcycles when number not specified
     while (cycles == 0 || count < cycles)
     {
         uint32_t state = Control(pipeState);

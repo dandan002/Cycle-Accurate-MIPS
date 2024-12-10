@@ -267,18 +267,18 @@ Emulator::InstructionInfo Emulator::executeInstruction()
             regData.registers[rt] = a + c;
         }
         break;
-    // BUG
     case OP_ADDIU:
-        a = regData.registers[rs];
-        c = signExtImm;
-        if (checkOverflowSigned(a, c))
-        {
-            info.isOverflow = true;
-        }
-        else
-        {
-            regData.registers[rt] = a + c;
-        }
+        regData.registers[rt] = regData.registers[rs] + signExtImm;
+        // a = regData.registers[rs];
+        // c = signExtImm;
+        // if (checkOverflowSigned(a, c))
+        // {
+        //     info.isOverflow = true;
+        // }
+        // else
+        // {
+        //     regData.registers[rt] = a + c;
+        // }
         break;
     case OP_ANDI:
         regData.registers[rt] = regData.registers[rs] & zeroExtImm;
