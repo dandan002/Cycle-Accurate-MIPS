@@ -279,7 +279,7 @@ uint32_t Control(PipeState &pipeline)
         lastBranchCycleCount != info.instructionID
         )
     {
-        // FIXME: clear this when the branch instruction is not the same
+        // [x]: clear this when the branch instruction is not the same
         nrLoadUseStalls += 1;
         state = LOAD_USE_STALL;
         lastBranchInstruction = pipeline.idInstr;
@@ -387,6 +387,7 @@ Status runCycles(uint32_t cycles)
     uint32_t count = 0;
     auto status = SUCCESS;
 
+    // BUG: runcycles when number not specified
     while (cycles == 0 || count < cycles)
     {
         uint32_t state = Control(pipeState);
@@ -424,6 +425,7 @@ Status runCycles(uint32_t cycles)
 
             // Conduct ICACHECHECK here. No need for function as we will only do when we fetch a new instruction.
             // current PC is the one reading from Icache
+            // icache_delay = iCache->access(pipeStateAddr.ifInstr_addr, CACHE_READ) ? 0 : iCache->config.missLatency;
             icache_delay = iCache->access(info.pc, CACHE_READ) ? 0 : iCache->config.missLatency;
 
             // checks if current MEM stage misses or hits
@@ -504,10 +506,17 @@ Status runCycles(uint32_t cycles)
 
         if (pipeState.wbInstr == HALT_INSTRUCTION)
         {
+            // moveAllForward(pipeState, pipeStateAddr);
             status = HALT;
             break;
         }
+
+        // if (cycles != 0 && count == cycles) {
+        //     status = HALT;
+        //     break;
+        // }
     }
+
 
     dumpPipeState(pipeState, output);
     return status;
@@ -518,13 +527,11 @@ Status runCycles(uint32_t cycles)
 Status runTillHalt()
 {
     Status status;
-    uint32_t t = 0;
     while (true)
     {
         status = static_cast<Status>(runCycles(1));
         if (status == HALT)
             break;
-        t += 1;
     }
     return status;
 }
@@ -534,7 +541,7 @@ Status finalizeSimulator()
 {
     emulator->dumpRegMem(output);
     SimulationStats stats{emulator->getDin(), currentCycle, iCache->getHits(), iCache->getMisses(), dCache->getHits(), dCache->getMisses(), nrLoadUseStalls};
-    // TODO: Incomplete Implementation
+    // [x]: Incomplete Implementation
     // [x]: Load use Stalls
     dumpSimStats(stats, output);
     return SUCCESS;

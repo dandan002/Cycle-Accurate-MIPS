@@ -267,6 +267,7 @@ Emulator::InstructionInfo Emulator::executeInstruction()
             regData.registers[rt] = a + c;
         }
         break;
+    // BUG
     case OP_ADDIU:
         a = regData.registers[rs];
         c = signExtImm;
